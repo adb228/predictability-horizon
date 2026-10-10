@@ -18,6 +18,7 @@ Requires [uv](https://docs.astral.sh/uv/) 0.8.22 or newer.
 uv sync --locked --python 3.12
 uv run --locked --python 3.12 ruff check .
 uv run --locked --python 3.12 ruff format --check .
+uv run --locked --python 3.12 pytest
 ```
 
 `--locked` makes uv fail, instead of silently re-resolving dependencies, if `uv.lock` is out of date.

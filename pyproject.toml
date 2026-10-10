@@ -13,6 +13,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.168.5",
+    "pytest>=9.1.1",
     "ruff>=0.17.0",
 ]
 
@@ -38,3 +40,15 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "NPY", "D", "ANN"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+xfail_strict = true
+markers = [
+    "slow: long-running validation tests (CI still runs them)",
+]
+filterwarnings = [
+    # JAX emits this when a float64 request is silently truncated to float32.
+    "error:Explicitly requested dtype:UserWarning",
+]
