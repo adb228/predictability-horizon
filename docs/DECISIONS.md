@@ -1,0 +1,156 @@
+# Decision log
+
+Short log of choices, alternatives, and why (brief §6.7: no silent tuning; every non-obvious choice is recorded here). Entries are append-only. A changed decision gets a new entry that supersedes the old one.
+
+## Approval tags
+
+| Tag | Meaning |
+|---|---|
+| **Owner** | Decided by the repo owner. |
+| **Opus 5.5** | A larger decision the implementer (Sonnet 5.5) deferred to Opus 5.5 under the owner's standing instruction (D-007). The entry records the question, the recommendation sent, and the verdict as returned, and is written **before** the decision is implemented. |
+| **Implementer** | Minor decision made by the implementer without deferral; logged for traceability. |
+
+**What counts as "larger"** (the implementer's reading of D-007; the owner may correct it): a choice that (a) is costly to reverse once later stages build on it, (b) can silently change numerical results, (c) adds a dependency or tool, or (d) changes the public surface of the repo.
+**Not deferred to Opus 5.5:** anything touching the owner's external accounts (creating or publishing a remote, pushing, tagging) or personal details. A model's approval cannot stand in for the owner's authorization, so these go to the owner.
+
+---
+
+## Calibration decisions (Owner, 2026-10-10)
+
+### D-001 Framework: JAX
+- **Choice:** JAX (Equinox and Optax from Stage 2). SciPy DOP853 is the independent reference integrator. SymPy is used only to cross-check derivations.
+- **Alternative:** PyTorch + `torchdiffeq`.
+- **Why:** `jax.jacfwd` gives exact Jacobians for the variational Lyapunov method, and `vmap` batches many initial conditions, all in one stack.
+
+### D-002 Pace
+- **Choice:** intensive, 15+ h/week. Targets: Stage 1 in about 3–4 weeks, Stage 2 in about 6–8 weeks. I read the Stage 2 target as counted from project start; owner to correct if not.
+- **Alternatives:** 8–10 h/week, 4–6 h/week, no dates.
+- **Why:** owner's availability. Advancement is gated by passing evidence, not by date.
+
+### D-003 Who writes what
+- **Choice:** the owner writes the equations of motion and energy (`systems/double_pendulum.py`), the Lyapunov estimators (`lyapunov.py`), and the Stage 2 metrics (`metrics.py`: VPT and matched-perturbation baseline). The implementer explains the math first, supplies interfaces and tests, and reviews. The implementer writes everything else (integrators, data generation, plotting, tests, CI).
+- **Why:** these are the pieces the owner must be able to defend unaided (brief §0, §7).
+
+### D-004 Depth of math walkthroughs
+- **Choice:** conceptual explanation with the final equations and the tests that guard them. The written derivations in `docs/derivations/` still contain the full derivation that brief §3 requires.
+- **Alternatives:** key steps and invariants; full line-by-line.
+- **Why:** owner preference; keeps chat explanations short (brief §0).
+
+### D-005 Names, license, CI
+- **Choice:** GitHub repo `predictability-horizon`, Python package `horizon`, MIT license, GitHub Actions running tests and lint from day one. The local working directory stays `worldmodel`.
+- **Alternatives:** keep `worldmodel` as the repo or package name; Apache-2.0; add CI later.
+- **Why:** matches brief §5; MIT is permissive and standard for research code.
+
+### D-006 Symplectic integrator: deferred
+- **Choice:** not built in Stage 1.
+- **Why:** the Hamiltonian is non-separable (the kinetic term depends on `θ1−θ2` through the mass matrix), so explicit Störmer–Verlet does not apply. Implicit midpoint would, but it needs a nonlinear solve per step and is not needed by the reference (DOP853) or fast (RK4) paths. Revisit after core validation if it earns its place.
+
+---
+
+## Stage 1 plan: approval and amendments (Owner, 2026-10-10)
+
+The seven-milestone Stage 1 plan was approved with the amendments D-008 to D-012, and with the standing instruction D-007.
+
+### D-007 Approval delegation
+- **Choice:** from the start of implementation, the implementer (Sonnet 5.5) defers larger decisions and questions to Opus 5.5 for approval and logs each deferral here before implementing it.
+- **Why:** owner instruction. See "Approval tags" above for how entries are recorded and what is escalated to the owner instead.
+
+### D-008 Variational/QR spectrum in canonical coordinates
+- **Choice:** run the pendulum's tangent-space/QR spectrum in canonical `(q, p)`. Any `(θ, ω)` run is a diagnostic only, and must show the exponent sum converging to zero as integration time grows.
+- **Why:** the Hamiltonian flow preserves phase-space volume in `(q, p)`, so exponents pair and sum to zero. In `(θ, ω)` the invariant measure is `det M(θ) dθ dω` (M is the mass matrix), so the finite-time exponent sum is `(1/T) ln[det M(θ₀) / det M(θ_T)]`: nonzero, decaying like `1/T`. This is my derivation, not yet checked; milestone 5 must verify it numerically.
+
+### D-009 Estimator validation systems
+- **Choice:** before touching the pendulum, validate the Lyapunov estimators on (i) a linear system, whose exponents equal the real parts of the eigenvalues of its matrix; (ii) a harmonic oscillator, with spectrum `(0, 0)`; (iii) Lorenz, with `λ₁ ≈ 0.906` and exact exponent sum `−(σ + 1 + β)`.
+- **Assumption to confirm:** Lorenz with the standard parameters `σ = 10, ρ = 28, β = 8/3`, which is where `λ₁ ≈ 0.906` comes from.
+- **Why:** known answers catch estimator bugs independently of the pendulum.
+
+### D-010 Wrap differences, never state
+- **Choice:** integrated angles are never wrapped. Wrapping, `wrap(Δθ) = ((Δθ + π) mod 2π) − π`, is applied only when computing differences.
+- **Why:** wrapping the state introduces discontinuities that break adaptive step control and tangent-space propagation. Metrics only ever need differences.
+
+### D-011 Milestone 6 sensitivity design
+- **Choice:** one-at-a-time sweeps around a declared default (timestep, perturbation size, renormalization/QR cadence, transient length, window length, norm), plus one combined worst-case run. No full grid.
+- **Alternative:** full factorial grid.
+- **Why:** cost. The grid grows multiplicatively in the number of factors. The worst-case run is the check for interactions that one-at-a-time sweeps miss.
+
+### D-012 Repository visibility
+- **Choice:** the repository becomes public after the milestone 4 gate passes.
+- **Note:** this is an external action on the owner's account. No remote exists yet; see `PROGRESS.md` open questions.
+
+---
+
+## Milestone 1: decisions deferred to Opus 5.5 (2026-10-10)
+
+Deferred under D-007 and logged **before** implementation. Reviewer: Opus 5.5 (subagent `a6ca5197-6ba5-4ead-9e23-87e5e2d7d9eb`). Its first reply reached the implementer as a summary only (one approval, seven amendments, no rejections). The verdicts below are from its follow-up reply, which it stated was unchanged. Each entry shows the resulting choice and what Opus 5.5 changed from the implementer's recommendation.
+
+### D-013 Packaging and layout (M1-1, AMEND)
+- **Choice:** project `predictability-horizon`; import package `horizon` in `src/horizon/`; `[build-system] requires = ["uv_build>=0.8.22,<0.9"]`, `build-backend = "uv_build"`, `[tool.uv.build-backend] module-name = "horizon"`; `[tool.uv] required-version = ">=0.8.22"`; `requires-python = ">=3.11"`; `.python-version` = 3.12; `uv.lock` committed; no placeholder modules or directories.
+- **Opus 5.5 changed:** added the `uv_build` upper bound and the minimum uv version.
+- **Alternatives:** `hatchling`; flat layout; no lockfile.
+- **Why:** an unbounded backend lets a future release change the build with no change in the repo; an older uv could write a different lockfile; src layout stops accidental imports from the working directory.
+
+### D-014 Dependencies are added when first imported (M1-2, AMEND)
+- **Choice:** milestone 1 adds runtime `jax`, `numpy` and dev `ruff` (commit 2), then dev `pytest`, `hypothesis` (commit 3). Later, each in the commit that first imports it: `sympy` (dev) at milestone 2, `scipy` (runtime) at milestone 3, `matplotlib` (runtime) at milestone 7. Declaring `numpy` explicitly is approved. Not added: `equinox`, `optax`, `diffrax`, GPU JAX, PyYAML, mypy/pyright, pre-commit, pytest-cov, pytest-xdist.
+- **Opus 5.5 changed:** staggered the dependencies instead of adding them all at once; ruled that declaring `numpy` needs no owner approval.
+- **Why:** keeps the history honest and the environment minimal. `numpy` is a direct import of a package already in the stack's transitive dependencies.
+
+### D-015 float64 policy (M1-3, AMEND)
+- **Choice:** `src/horizon/__init__.py` calls `jax.config.update("jax_enable_x64", True)` on import. Smoke test: a fresh interpreter, `subprocess.run([sys.executable, "-c", ...], check=True)`, imports only `horizon` and `jax.numpy` and asserts `jnp.zeros(()).dtype == jnp.float64`, `jnp.asarray(1.0).dtype == jnp.float64`, `jnp.finfo(jnp.asarray(1.0).dtype).eps < 1e-15`, and `bool(jnp.asarray(1.0) + 1e-12 != jnp.asarray(1.0))`. Never test with plain Python floats. `tests/conftest.py` and every script and entry point import `horizon` before anything else from JAX. Before relying on the flag, check the locked JAX version's changelog and docs that `jax_enable_x64` is not deprecated, and record the result below.
+- **Opus 5.5 changed:** the test design, the import-order rule, and the deprecation check. My proposed check (`1.0 + 1e-12 != 1.0` on Python floats) can never fail; an in-process test can pass because `conftest.py` already enabled float64; arrays created before `horizon` is imported stay float32.
+- **Alternatives:** env var `JAX_ENABLE_X64=1` (easy to forget, then silently float32); explicit `horizon.enable_x64()` at every entry point.
+- **Known cost:** an import-time global side effect. Revisit at Stage 3, when GPU networks will want float32.
+- **Implementer note:** ruff's isort rule sorts third-party `jax` imports before first-party `horizon`, so I read the import-order rule as "before any JAX array is created or traced" (importing `jax` itself is harmless). It holds strictly in `conftest.py`, which imports no JAX, and conftest loads before every test module.
+- **Deprecation check result:** pending.
+
+### D-016 Continuous integration (M1-4, AMEND)
+- **Choice:** `.github/workflows/ci.yml`; triggers: push to `main` and all pull requests; `ubuntu-latest`; Python matrix 3.11 and 3.12; `permissions: contents: read`; `timeout-minutes: 20`; `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }`. Steps: `actions/checkout`, then `astral-sh/setup-uv` with `version: "0.8.22"` and `enable-cache: true`, `uv sync --locked --python <matrix version>`, `uv run ruff check .`, `uv run ruff format --check .`, full `uv run pytest`. No macOS runner. Use the current latest major versions of both actions, looked up before committing, not the v4/v5 I proposed from memory.
+- **Opus 5.5 changed:** action versions must be looked up rather than recalled; pinned uv version; job timeout; concurrency group.
+- **Alternatives:** single Python version; macOS arm64 runner; pin actions by commit SHA.
+- **Why:** with no remote, "verify on the first real run" cannot happen soon. One OS with a Python matrix tests the `>=3.11` claim at low cost.
+- **Action versions used:** pending lookup.
+
+### D-017 Lint and format (M1-5, APPROVE)
+- **Choice:** ruff, `line-length = 100`, `target-version = "py311"`, select `E, F, W, I, UP, B, SIM, NPY, D, ANN`, numpy docstring convention; `D` and `ANN` relaxed only under `tests/`.
+- **Why:** `D` + `ANN` mechanically enforce brief rule 8 (type hints and docstrings on public functions); neither checks units or array shapes, which stay a review item. `NPY` flags legacy global-seed NumPy randomness, which supports the explicit-seed policy.
+
+### D-018 Test infrastructure and determinism (M1-6, AMEND)
+- **Choice:** pytest config: `testpaths = ["tests"]`, `addopts = "-ra --strict-markers"`, `xfail_strict = true`, registered marker `slow` (CI still runs everything), `filterwarnings = ["error:Explicitly requested dtype:UserWarning"]`. `tests/conftest.py` registers Hypothesis profile `default` (`derandomize=True, deadline=None, database=None, print_blob=True`) and profile `explore` (`derandomize=False, deadline=None, max_examples=1000`), and loads `settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))`.
+- **Opus 5.5 changed:** added `xfail_strict`, the fatal JAX-dtype warning, `database=None`, `print_blob=True`, and the environment-variable profile selector.
+- **Why:** that JAX warning is what silent float32 truncation looks like at runtime. Derandomized runs are reproducible only for a fixed Hypothesis version, which `uv.lock` provides. Without a database, a run cannot replay examples saved by earlier local runs.
+
+### D-019 Randomness, config and provenance convention (M1-7, AMEND)
+- **Choice (documentation only in milestone 1; no `config.py` or seeding helper yet):** every stochastic script takes an explicit integer seed from a committed frozen-dataclass config, written to JSON next to its results. JAX randomness uses `jax.random.key(seed)` and `split`; NumPy uses `np.random.default_rng(seed)`; never global seeding. Every result JSON also records the git commit SHA, a dirty-working-tree flag, the versions of `python`, `jax`, `jaxlib`, `numpy`, `scipy` (once added) and `hypothesis` where relevant, and `platform.platform()`.
+- **Opus 5.5 changed:** added the provenance fields.
+- **Alternatives:** build `horizon/config.py` now; YAML configs.
+- **Why:** a seed alone cannot reproduce a number when XLA or SciPy versions differ. A config module's shape should come from the first real experiment.
+
+### D-020 Commit plan (M1-8, AMEND)
+- **Choice:** local commits only; no push, tag, or remote creation without the owner. (1) brief + decision log, including these verdicts, so each decision is logged before the change it governs; (2) scaffold: `pyproject.toml`, `uv.lock` (only `jax`, `numpy`, `ruff`), package, license, readme, gitignore, `.python-version`, ruff passing; (3) test infrastructure and smoke tests: adds `pytest` and `hypothesis` to the dev group and updates `uv.lock` in the same commit, pytest passing (pytest exits with code 5 when it collects no tests); (4) CI workflow; (5) progress log.
+- **Opus 5.5 changed:** the order, and what each commit must pass, so every commit is green on its own.
+
+### Risks raised by Opus 5.5 and how each is handled
+- **Git identity becomes public** (D-012): no commit until the owner confirms the author name and email (confirmed: D-021).
+- **Milestone 1 cannot fully pass yet:** "passes in CI" needs a remote. `PROGRESS.md` records "locally passed, CI pending", not done.
+- **Local runs may not match the lockfile:** plain `uv run` can silently re-resolve. The README reproduce command is `uv sync --locked` followed by `uv run --locked pytest`.
+- **Future suite runtime:** the `t = 1000` DOP853 energy-drift test will run once per Python version in CI. Measure it at milestone 4 and raise `timeout-minutes` rather than skipping it as `slow`.
+
+### Escalated to the owner (resolved 2026-10-10)
+1. Create the GitHub remote, because the CI half of the milestone 1 gate is blocked until it exists: see D-023.
+2. Confirm the MIT LICENSE holder name and the git author name and email before the first commit: see D-021 and D-022.
+
+---
+
+## Owner confirmations escalated by Opus 5.5 (Owner, 2026-10-10)
+
+### D-021 Git author identity
+- **Choice:** name `adb228`, email `172058618+adb228@users.noreply.github.com` (the GitHub noreply address), set in this repo's local git config only. The global config is unchanged.
+- **Alternative:** the global identity `adb228 <adb228@g.ucla.edu>`.
+- **Why:** the author name and email become public with the history (D-012). The noreply address keeps the UCLA email out of it.
+
+### D-022 License holder
+- **Choice:** `Copyright (c) 2026 adb228`, the same name as the git author identity.
+
+### D-023 GitHub remote
+- **Choice:** the implementer creates private `adb228/predictability-horizon` with `gh` and pushes `main` so CI runs. It stays private until the milestone 4 gate. Making it public is a separate step (D-012).
+- **Alternatives:** the owner creates it; hold, with the gate recorded as "locally passed, CI pending".
+- **Why:** the CI half of the milestone 1 gate cannot pass without a remote.
