@@ -109,7 +109,9 @@ Deferred under D-007 and logged **before** implementation. Reviewer: Opus 5.5 (s
 - **Opus 5.5 changed:** action versions must be looked up rather than recalled; pinned uv version; job timeout; concurrency group.
 - **Alternatives:** single Python version; macOS arm64 runner; pin actions by commit SHA.
 - **Why:** with no remote, "verify on the first real run" cannot happen soon. One OS with a Python matrix tests the `>=3.11` claim at low cost.
-- **Action versions used:** pending lookup.
+- **Action versions used (looked up 2026-10-10 from the GitHub releases API):** `actions/checkout@v7` (latest release v7.0.1; the floating tag `v7` exists) and `astral-sh/setup-uv@v10.3.0` (latest release; **no floating `v10` tag exists**, so the exact release tag is pinned, which is the same major Opus 5.5 asked for). The versions I proposed from memory, v4 and v5, were two and five majors behind.
+- **Implementer adaptations that keep the approved intent:** (1) the Python version is set by a job-level `UV_PYTHON` instead of `--python` on `uv sync` alone. Verified locally: after `uv sync --python 3.11`, a plain `uv run` deleted the 3.11 environment and rebuilt it as 3.12 because of `.python-version`, so the literal step list would have run the "3.11" job on Python 3.12. (2) The job prints the jax, jaxlib, numpy and scipy versions and asserts the interpreter matches the matrix entry, so a mismatch fails loudly. (3) Every `uv run` uses `--locked`, stricter than the literal list.
+- **Verified so far:** the workflow parses as YAML, and both matrix legs were simulated locally with the same commands and `UV_PYTHON` (ruff clean, 5 of 5 tests pass on jax 0.10.2 and on jax 0.11.2). **Not yet verified:** an actual GitHub Actions run.
 
 ### D-017 Lint and format (M1-5, APPROVE)
 - **Choice:** ruff, `line-length = 100`, `target-version = "py311"`, select `E, F, W, I, UP, B, SIM, NPY, D, ANN`, numpy docstring convention; `D` and `ANN` relaxed only under `tests/`.
