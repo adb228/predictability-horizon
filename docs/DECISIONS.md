@@ -100,7 +100,7 @@ Deferred under D-007 and logged **before** implementation. Reviewer: Opus 5.5 (s
 - **Alternatives:** env var `JAX_ENABLE_X64=1` (easy to forget, then silently float32); explicit `horizon.enable_x64()` at every entry point.
 - **Known cost:** an import-time global side effect. Revisit at Stage 3, when GPU networks will want float32.
 - **Implementer note:** ruff's isort rule sorts third-party `jax` imports before first-party `horizon`, so I read the import-order rule as "before any JAX array is created or traced" (importing `jax` itself is harmless). It holds strictly in `conftest.py`, which imports no JAX, and conftest loads before every test module.
-- **Deprecation check result:** pending.
+- **Deprecation check result:** pending. It must cover both locked JAX versions, 0.10.2 and 0.11.2 (D-024).
 
 ### D-016 Continuous integration (M1-4, AMEND)
 - **Choice:** `.github/workflows/ci.yml`; triggers: push to `main` and all pull requests; `ubuntu-latest`; Python matrix 3.11 and 3.12; `permissions: contents: read`; `timeout-minutes: 20`; `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }`. Steps: `actions/checkout`, then `astral-sh/setup-uv` with `version: "0.8.22"` and `enable-cache: true`, `uv sync --locked --python <matrix version>`, `uv run ruff check .`, `uv run ruff format --check .`, full `uv run pytest`. No macOS runner. Use the current latest major versions of both actions, looked up before committing, not the v4/v5 I proposed from memory.
@@ -154,3 +154,17 @@ Deferred under D-007 and logged **before** implementation. Reviewer: Opus 5.5 (s
 - **Choice:** the implementer creates private `adb228/predictability-horizon` with `gh` and pushes `main` so CI runs. It stays private until the milestone 4 gate. Making it public is a separate step (D-012).
 - **Alternatives:** the owner creates it; hold, with the gate recorded as "locally passed, CI pending".
 - **Why:** the CI half of the milestone 1 gate cannot pass without a remote.
+
+---
+
+## Follow-up review by Opus 5.5 (2026-10-10)
+
+Consulted through a follow-up to the same reviewer, after `uv add` revealed a fact the first review did not have.
+
+### D-024 Two locked stacks; Python 3.12 is the reference (Opus 5.5, AMEND)
+- **Fact (verified from PyPI metadata and `uv.lock`):** jax 0.11.2 requires Python `>=3.12` and jax 0.10.2 requires `>=3.11`, so the lock forks. Python 3.11: jax and jaxlib 0.10.2, numpy 2.4.6, scipy 1.17.1. Python `>=3.12`: jax and jaxlib 0.11.2, numpy 2.5.3, scipy 1.18.1. The CI matrix (D-016) therefore tests the oldest and the newest stack, not one stack twice. `uv add` wrote the lower bounds `jax>=0.10.2` and `numpy>=2.4.6`, the minimum across the forks.
+- **Choice:** keep `requires-python = ">=3.11"` (brief §4) and the 3.11 + 3.12 matrix. Python 3.12 (`.python-version`, jax 0.11.2) is the **reference environment**: every committed result and figure is generated there, and each result JSON records library versions (D-019). The 3.11 job is a lowest-supported-version check. All tests must pass on both stacks with tolerances declared up front. A test that fails on only one stack blocks the milestone and must be investigated; it is never skipped or loosened per stack. The README reproduce commands pin `--python 3.12`.
+- **Opus 5.5 changed:** pinned the README commands to the reference stack and added the one-stack-failure rule. It also ruled that the D-015 deprecation check must cover both locked JAX versions.
+- **Alternatives:** raise `requires-python` to `>=3.12` (a single stack, but it deviates from the brief, so it is the owner's call); cap `jax<0.11` (forgoes current JAX).
+- **Why:** without the pin, a user whose default Python is 3.11 would silently regenerate results on the older stack.
+- **For the owner's information:** raising `requires-python` to `>=3.12` would collapse the lockfile to one numerical stack.
