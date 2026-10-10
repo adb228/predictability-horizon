@@ -26,7 +26,7 @@ Milestone 2 of 7 (double-pendulum mechanics): **in progress, waiting for the own
 
 ## Next
 
-- Milestone 2, owner: implement `mass_matrix`, `kinetic_energy`, `potential_energy`, `energy`, `acceleration` and `vector_field` (D-003), running the frozen tests as you go (for example `uv run pytest tests/test_double_pendulum.py -k t1`). The implementer reviews and never edits that file; any change to a test or a tolerance goes through D-025.
+- Milestone 2, owner: implement `mass_matrix`, `kinetic_energy`, `potential_energy`, `energy`, `acceleration` and `vector_field` (D-003), running the frozen tests as you go (for example `uv run pytest tests/test_double_pendulum.py -k "t1_"`; the trailing underscore matters, because `-k t1` is a substring match and also selects T10 and T11). The implementer reviews and never edits that file; any change to a test or a tolerance goes through D-025.
 - Milestone 2, implementer, after the owner's code is green: commit `scripts/mutation_check.py` and log its numbers, open the pull request, merge with a merge commit, then three interview questions.
 
 ## Open questions
