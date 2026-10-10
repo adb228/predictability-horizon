@@ -1,4 +1,4 @@
-"""Self-checks of the independent oracle (O1 to O6, D-029).
+"""Self-checks of the independent oracle (O1 to O7, D-029, D-035).
 
 These run green before the owner writes any code. They check the *oracle*, not the code under
 test. Which of them are independent anchors, and which are not:
@@ -7,10 +7,16 @@ test. Which of them are independent anchors, and which are not:
   modes are exactly 2 +/- sqrt(2)) are independent anchors.
 * O2 substitutes the oracle's own solution back into its own equations, so it is close to
   circular and only checks the solve step.
-* O5 and O6 guard the test machinery (the cases, and the float-to-high-precision conversion).
+* O5, O6 and O7 guard the test machinery (the cases, the float-to-high-precision conversion,
+  and the absence of symbolic computation when the owner's code is tested).
 """
 
+import ast
 import itertools
+import os
+import pathlib
+import sys
+from collections.abc import Callable
 from fractions import Fraction
 
 import mpmath as mp
@@ -25,6 +31,19 @@ from tests.oracles import double_pendulum as oracle
 
 MODERATE = cases.moderate_cases()
 LARGE_ANGLE = cases.large_angle_cases()
+
+# The only oracle functions the tests of the owner's code may call (O7).
+NUMERIC_API = frozenset(
+    {
+        "mass_matrix",
+        "kinetic_energy",
+        "potential_energy",
+        "energy",
+        "acceleration",
+        "jacobian",
+        "el_residual",
+    }
+)
 
 
 def test_o1_cartesian_energies_equal_the_briefs_symbolically() -> None:
@@ -177,3 +196,86 @@ def test_o6_float_to_high_precision_conversion_is_exact() -> None:
             converted = oracle.to_mp(x)
             assert float(converted) == x
             assert converted * exact.denominator == exact.numerator, f"{x!r} is not exact"
+
+
+def _sympy_calls(run: Callable[[], object]) -> list[str]:
+    """Names of the SymPy functions called while ``run()`` executes, in the main thread only.
+
+    ``sys.setprofile`` applies to the current thread alone. The previous profiler is saved and
+    restored in a ``finally`` block, so a failure cannot leave the tracer installed.
+    """
+    package_dir = os.path.join(os.path.dirname(sp.__file__), "")
+    called: list[str] = []
+
+    def profiler(frame, event, arg) -> None:
+        if event == "call" and frame.f_code.co_filename.startswith(package_dir):
+            called.append(frame.f_code.co_qualname)
+
+    previous = sys.getprofile()
+    sys.setprofile(profiler)
+    try:
+        run()
+    finally:
+        sys.setprofile(previous)
+    return called
+
+
+def test_o7_the_oracle_numeric_functions_call_no_sympy() -> None:
+    """Evaluating the oracle at a state runs no SymPy code, so the owner's tests run none.
+
+    T4 evaluates the owner's float64 acceleration in the oracle's cached, lambdified residual;
+    it never simplifies, expands or solves anything (D-035). This is the check: after the
+    symbolic model is built (outside the traced region), the seven numeric functions that the
+    tests of the owner's code may call must make no call into the ``sympy`` package.
+    """
+    oracle.model()  # the one-time symbolic derivation; the tracer is installed afterwards
+    state, params = MODERATE[0].states[0], MODERATE[0].params
+    alpha = oracle.acceleration(state, params)
+
+    def evaluate() -> None:
+        oracle.mass_matrix(state[:2], params)
+        oracle.kinetic_energy(state, params)
+        oracle.potential_energy(state, params)
+        oracle.energy(state, params)
+        oracle.acceleration(state, params)
+        oracle.jacobian(state, params)
+        oracle.el_residual(state, alpha, params)
+
+    called = _sympy_calls(evaluate)
+    assert not called, f"{len(called)} calls into sympy, first: {called[:5]}"
+
+
+def test_o7_the_call_tracer_detects_a_real_sympy_call() -> None:
+    """Positive control: a gate that cannot fail is not a gate. Also checks the restore."""
+    x = sp.Symbol("x")
+    before = sys.getprofile()
+    called = _sympy_calls(lambda: sp.simplify(sp.sin(x) ** 2 + sp.cos(x) ** 2))
+    assert called, "the tracer saw no SymPy call during a simplify"
+    assert sys.getprofile() is before, "the tracer was left installed"
+
+
+def test_o7_the_implementation_tests_reach_the_oracle_only_through_its_numeric_functions() -> None:
+    """``tests/test_double_pendulum.py`` imports no SymPy and calls only ``NUMERIC_API``.
+
+    Together with the call trace above, this means that no test of the owner's code can run
+    symbolic computation, whichever oracle function it uses. Using another oracle function
+    (``model``, for example) fails here until it is added to ``NUMERIC_API`` and traced.
+    """
+    path = pathlib.Path(__file__).with_name("test_double_pendulum.py")
+    tree = ast.parse(path.read_text())
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module.split(".")[0])
+    assert "sympy" not in imported
+    used = {
+        node.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "oracle"
+    }
+    assert used, "the tests no longer use the oracle, so this check would be vacuous"
+    assert used <= NUMERIC_API, f"not in NUMERIC_API: {sorted(used - NUMERIC_API)}"

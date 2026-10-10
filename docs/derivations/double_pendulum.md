@@ -134,7 +134,7 @@ Random, distinct, non-default parameters are essential in the tests: with all fi
 
 ## 9. Claims and the tests that check them
 
-Tests live in `tests/`. `O1`–`O6` check the independent oracle itself (SymPy derivation from the geometry of section 2, evaluated at 60 digits); `T1`–`T11` check the owner's code against it. The comparison rule, used everywhere, is `|x − x_ref| ≤ ATOL + RTOL · s`: for value comparisons `s = max(‖x_ref‖∞, 1)`; for residual checks `s` is the sum of the absolute values of the individual terms. Tolerance classes (`IMPL`, `IDENTITY`, `ORACLE_SELF_CHECK`) and their values are in `src/horizon/tolerances.py`, and `check_close` there implements the rule once.
+Tests live in `tests/`. `O1`–`O7` check the independent oracle itself (SymPy derivation from the geometry of section 2, evaluated at 60 digits); `T1`–`T11` check the owner's code against it. The comparison rule, used everywhere, is `|x − x_ref| ≤ ATOL + RTOL · s`: for value comparisons `s = max(‖x_ref‖∞, 1)`; for residual checks `s` is the sum of the absolute values of the individual terms. Tolerance classes (`IMPL`, `IDENTITY`, `ORACLE_SELF_CHECK`) and their values are in `src/horizon/tolerances.py`, and `check_close` there implements the rule once.
 
 | Claim | Section | Test | Tolerance class |
 |---|---|---|---|
@@ -142,7 +142,7 @@ Tests live in `tests/`. `O1`–`O6` check the independent oracle itself (SymPy d
 | `M` and `b` as written, `det M` in factored form, and the closed form for `α` equal the oracle's | 2, 3 | O3 | exact (symbolic) |
 | The oracle's solved accelerations satisfy its Euler-Lagrange equations (a check on the solve step only) | 3 | O2 | `ORACLE_SELF_CHECK` |
 | `mass_matrix`, the energies and `acceleration` match the oracle at generic states and at large unwrapped angles | 2, 3, 5 | T1, T2, T3 | `IMPL` |
-| The Euler-Lagrange residual of the implemented `acceleration` vanishes (the SymPy residual check) | 3 | T4 | `IMPL`, scale = sum of terms |
+| The Euler-Lagrange residual of the implemented `acceleration` vanishes (your float64 result is put into the oracle's stored residual and evaluated numerically at 60 digits; nothing is simplified symbolically at test time, see O7) | 3 | T4 | `IMPL`, scale = sum of terms |
 | `∇E · f = 0` at every state | 4 | T5 | `IMPL`, scale = sum of terms |
 | Acceleration is even in `ω` and odd in `θ`; the vector field is `2π`-periodic in each angle | 5 | T6 | `IDENTITY` |
 | The four listed states are equilibria; the hanging energy is `−[(m1+m2) g L1 + m2 g L2]` and is the lower bound of `E` | 6 | T7 | `IDENTITY` |
@@ -153,5 +153,6 @@ Tests live in `tests/`. `O1`–`O6` check the independent oracle itself (SymPy d
 | Functions have the documented shapes and `float64`, and agree under `jit` + `vmap` over states and batched parameters passed as traced arguments | interface | T11 | `IDENTITY` |
 | The test parameter sets are pairwise distinct by at least 10 percent, and swapping any two of the five parameters is rejected by the `IMPL` tolerance on every set, so a swap cannot hide | 8 | O5 | exact (separation), `IMPL` (swap) |
 | The oracle converts floats to high precision exactly | none | O6 | exact |
+| The tests of your code run no symbolic computation: the oracle's numeric functions call no SymPy, and the test module reaches the oracle only through them | none | O7 | exact |
 
 **What each family cannot catch.** `T6`, `T7`, `T9` and `T10` are blind to `cos(θ1 + θ2)` in place of `cos(θ1 − θ2)` (section 6). `T5` only compares the energy with the equations, so it also misses a change made consistently to both. Only `T1`–`T4` and `T8`, which compare against the oracle at generic states, catch these mistakes, and they are only as trustworthy as the oracle, which is anchored by `O1`, `O3` and `O4`. `O2` is close to circular (it substitutes the oracle's own solution back in), so it only checks the solve step.
