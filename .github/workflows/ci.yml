@@ -14,17 +14,8 @@ concurrency:
 
 jobs:
   test:
-    name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12"]
-    env:
-      # Applies to every uv command. Without it, a plain `uv run` switches to the version in
-      # .python-version (3.12) and the 3.11 job would silently test 3.12 (docs/DECISIONS.md, D-016).
-      UV_PYTHON: ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -33,13 +24,12 @@ jobs:
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --locked
-      - name: Show and check the environment
+      - name: Show the environment
         run: |
           uv run --locked python -c "
           import sys
           from importlib.metadata import version
           print('python', sys.version.split()[0], *(f'{p} {version(p)}' for p in ('jax', 'jaxlib', 'numpy', 'scipy')))
-          assert sys.version.startswith('${{ matrix.python-version }}.'), sys.version
           "
       - name: Lint
         run: uv run --locked ruff check .

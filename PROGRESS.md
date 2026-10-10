@@ -4,14 +4,14 @@ Running log: what is done, what is next, open questions. Updated at the end of e
 
 ## Where we are (2026-10-10)
 
-Stage 1, milestone 1 of 7 (repository baseline): **done.** The gate passed locally and in CI on the private remote, on Python 3.11 and 3.12. No scientific results exist yet.
+Stage 1, milestone 1 of 7 (repository baseline): **done.** The gate passed locally and in CI on the private remote. Since then the project requires Python 3.12 or newer, with one locked stack and one pinned CI job (D-026, D-027). No scientific results exist yet.
 
 ## Done
 
 - Calibration, and the Stage 1 plan approved with amendments (D-001 to D-012).
 - Milestone 1 decisions reviewed by Opus 5.5 before implementation (D-013 to D-020, D-024). Owner confirmations recorded (D-021 to D-023).
 - Repository baseline: brief and decision log, project scaffold, tests, CI workflow, this log.
-- Local gate, run on both locked stacks with the same commands CI uses:
+- Local gate for milestone 1, run on both locked stacks that existed at the time (Python 3.11 support was removed afterwards, D-027), with the same commands CI uses:
 
   | Python | jax | numpy | scipy | `ruff check` | `ruff format --check` | `pytest` |
   |---|---|---|---|---|---|---|
@@ -27,5 +27,5 @@ Stage 1, milestone 1 of 7 (repository baseline): **done.** The gate passed local
 
 ## Open questions
 
-- **CI runner image.** GitHub will move the `ubuntu-latest` label to Ubuntu 26 starting 2026-10-19 (annotation on the first CI run). `ubuntu-latest` was approved in D-016. Should we pin `ubuntu-24.04` so the environment cannot change under us? The implementer's recommendation is to pin, and to move to the new image deliberately. Not blocking, but best decided before 2026-10-19.
-- For the owner's information (D-024): raising `requires-python` to `>=3.12` would collapse the lockfile to a single numerical stack.
+- None blocking.
+- For the owner's information: `docs/BRIEF.md` §4 still says "Python 3.11+". D-027 records the deviation; edit the brief if you want it to match.

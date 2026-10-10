@@ -5,10 +5,10 @@ description = "Measuring learned world models in units of Lyapunov time, and sep
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
-    "jax>=0.10.2",
-    "numpy>=2.4.6",
+    "jax>=0.11.2",
+    "numpy>=2.5.3",
 ]
 
 [dependency-groups]
@@ -30,7 +30,7 @@ module-name = "horizon"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "NPY", "D", "ANN"]

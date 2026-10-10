@@ -12,18 +12,16 @@ Stage 1 (physics ground truth, no ML), milestone 1 of 7: repository baseline.
 
 ## Reproduce the environment
 
-Requires [uv](https://docs.astral.sh/uv/) 0.8.22 or newer.
+Requires [uv](https://docs.astral.sh/uv/) 0.8.22 or newer and Python 3.12 or newer (`.python-version` pins 3.12; uv fetches it if needed).
 
 ```bash
-uv sync --locked --python 3.12
-uv run --locked --python 3.12 ruff check .
-uv run --locked --python 3.12 ruff format --check .
-uv run --locked --python 3.12 pytest
+uv sync --locked
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked pytest
 ```
 
-`--locked` makes uv fail, instead of silently re-resolving dependencies, if `uv.lock` is out of date.
-
-Python 3.12 is the **reference environment**: all committed results and figures are generated there. The project supports Python 3.11 as well, but the lockfile resolves an older JAX/NumPy/SciPy stack for it (JAX 0.11 requires Python 3.12 or newer), so CI runs both. See D-024 in [`docs/DECISIONS.md`](docs/DECISIONS.md).
+`--locked` makes uv fail, instead of silently re-resolving dependencies, if `uv.lock` is out of date. There is a single locked stack, so every committed result comes from the same library versions. See D-027 in [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Documents
 
