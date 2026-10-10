@@ -151,7 +151,7 @@ Tests live in `tests/`. `O1`–`O6` check the independent oracle itself (SymPy d
 | The hanging-state Jacobian has blocks `0`, `I`, `0`, and `M(0)⁻¹K` has eigenvalues `2 ± √2` for the defaults, with the 4×4 eigenvalues `±i√(2 ± √2)` | 7 | T9 | `IDENTITY` |
 | The dynamics depend only on `m2/m1` and `L2/L1` once time is in units of `√(L1/g)` | 8 | T10 | `IDENTITY` |
 | Functions have the documented shapes and `float64`, and agree under `jit` + `vmap` over states and batched parameters passed as traced arguments | interface | T11 | `IDENTITY` |
-| The test parameter sets are pairwise distinct by at least 10 percent, so any parameter swap changes the output | 8 | O5 | exact |
+| The test parameter sets are pairwise distinct by at least 10 percent, and swapping any two of the five parameters is rejected by the `IMPL` tolerance on every set, so a swap cannot hide | 8 | O5 | exact (separation), `IMPL` (swap) |
 | The oracle converts floats to high precision exactly | none | O6 | exact |
 
 **What each family cannot catch.** `T6`, `T7`, `T9` and `T10` are blind to `cos(θ1 + θ2)` in place of `cos(θ1 − θ2)` (section 6). `T5` only compares the energy with the equations, so it also misses a change made consistently to both. Only `T1`–`T4` and `T8`, which compare against the oracle at generic states, catch these mistakes, and they are only as trustworthy as the oracle, which is anchored by `O1`, `O3` and `O4`. `O2` is close to circular (it substitutes the oracle's own solution back in), so it only checks the solve step.
