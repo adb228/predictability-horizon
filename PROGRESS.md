@@ -4,7 +4,7 @@ Running log: what is done, what is next, open questions. Updated at the end of e
 
 ## Where we are (2026-10-10)
 
-Stage 1, milestone 1 of 7 (repository baseline): **locally passed, CI pending.** No scientific results exist yet.
+Stage 1, milestone 1 of 7 (repository baseline): **done.** The gate passed locally and in CI on the private remote, on Python 3.11 and 3.12. No scientific results exist yet.
 
 ## Done
 
@@ -19,12 +19,13 @@ Stage 1, milestone 1 of 7 (repository baseline): **locally passed, CI pending.**
   | 3.11 | 0.10.2 | 2.4.6 | 1.17.1 | pass | pass | 5 passed |
 
 - Two mutation checks showed that the float64 test and the fatal-warning test can fail (D-015).
+- Private GitHub remote `adb228/predictability-horizon` (D-023). The first push needed the `workflow` scope, which the owner granted to the `gh` token. CI run 38039152732 passed on Python 3.12 (19 s) and 3.11 (21 s).
 
 ## Next
 
-- Milestone 1: create the private GitHub remote and push (D-023), confirm CI passes on both Python versions, then mark the milestone done.
 - Milestone 2: derive and cross-check the double-pendulum mechanics. The owner writes the equations of motion (D-003); the implementer first walks through the math, supplies the interface and the SymPy-based tests, then reviews.
 
 ## Open questions
 
-- None blocking. For the owner's information (D-024): raising `requires-python` to `>=3.12` would collapse the lockfile to a single numerical stack.
+- **CI runner image.** GitHub will move the `ubuntu-latest` label to Ubuntu 26 starting 2026-10-19 (annotation on the first CI run). `ubuntu-latest` was approved in D-016. Should we pin `ubuntu-24.04` so the environment cannot change under us? The implementer's recommendation is to pin, and to move to the new image deliberately. Not blocking, but best decided before 2026-10-19.
+- For the owner's information (D-024): raising `requires-python` to `>=3.12` would collapse the lockfile to a single numerical stack.

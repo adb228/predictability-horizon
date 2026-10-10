@@ -159,6 +159,7 @@ Deferred under D-007 and logged **before** implementation. Reviewer: Opus 5.5 (s
 - **Choice:** the implementer creates private `adb228/predictability-horizon` with `gh` and pushes `main` so CI runs. It stays private until the milestone 4 gate. Making it public is a separate step (D-012).
 - **Alternatives:** the owner creates it; hold, with the gate recorded as "locally passed, CI pending".
 - **Why:** the CI half of the milestone 1 gate cannot pass without a remote.
+- **Outcome (2026-10-10):** the private repo was created. The first push was rejected because the `gh` OAuth token lacked the `workflow` scope, which GitHub requires to create or update `.github/workflows/*`. The owner chose, from the options (grant the scope, switch to SSH, or hold), to grant it. I ran `gh auth refresh -h github.com -s workflow` and the owner approved the one-time code in the browser. **The token's scopes are now `gist`, `read:org`, `repo`, `workflow`** (previously without `workflow`). `main` was pushed and CI run 38039152732 passed on Python 3.12 (19 s) and 3.11 (21 s).
 
 ---
 
