@@ -16,6 +16,7 @@ dev = [
     "hypothesis>=6.168.5",
     "mpmath>=1.3.0",
     "pytest>=9.1.1",
+    "pytest-timeout>=2.4.0",
     "ruff>=0.17.0",
     "sympy>=1.14.0",
 ]
@@ -47,6 +48,15 @@ convention = "numpy"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 xfail_strict = true
+# Per-test time limit (D-036): a hung test fails instead of blocking the run. SIGALRM stops
+# Python-level hangs; it cannot stop a non-terminating XLA loop, for which the faulthandler
+# dump below names the line. A test that needs longer carries @pytest.mark.timeout(N),
+# declared when the test is written and logged first (D-025). Never change these to fit
+# the code under test.
+timeout = 60
+timeout_method = "signal"
+timeout_func_only = false  # fixture setup, including the lazy oracle build, counts too
+faulthandler_timeout = 120  # diagnostic stack dump only, not a pass/fail threshold
 markers = [
     "slow: long-running validation tests (CI still runs them)",
 ]
