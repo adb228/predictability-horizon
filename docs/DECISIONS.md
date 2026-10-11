@@ -397,4 +397,12 @@ The owner asked for, in this order: push the local docs commit; update the pull 
 
 - **Done.** Pushed `e6f566c..27434b0`. The pull request title and body were rewritten (the old ones said "draft, red until the owner's six functions exist"). CI run 38175591108 on the head `27434b0` passed: lint, format check and 409 tests in 35 s on Linux (ubuntu-24.04, Python 3.12.3). The pull request had been marked ready on 2026-10-10 after the review, so nothing needed marking. Merged as a merge commit, `5373671`, with parents `a437248` and `27434b0`, so the 15 commits of the branch stay in the history; no squash. The branch `milestone-2-mechanics` is deleted on the remote and locally. CI run 38175725098 on `main` (`5373671`) passed: 409 tests in 40 s.
 - **Not done, on purpose.** No tag: the Stage 1 tag comes at the end of Stage 1. The "owner's code" wording fix stays queued for the pre-public docs cleanup (`PROGRESS.md`).
-- **Found while closing.** The seven-milestone Stage 1 list is not written in the repository (listed under open questions in `PROGRESS.md`, for the owner to confirm).
+- **Found while closing.** The seven-milestone Stage 1 list was not written in the repository. D-041 resolves that.
+
+### D-041 Milestone 3 approved; the approved Stage 1 plan is saved in the repository (owner's instructions; not deferred to Opus)
+
+The owner approved the milestone 3 scope as proposed in `PROGRESS.md` (fixed-step RK4 in JAX, the DOP853 wrapper, the convergence and agreement gate; the physics validation suite stays in milestone 4) and answered the questions.
+
+- **Integrator math.** A short walkthrough only, with no derive-and-verify step, on three things: why RK4's global error is `O(dt⁴)`; how DOP853's embedded error estimate controls the step size; and why two integrators in a chaotic system can agree only up to a finite horizon. The agreement tolerance and the horizon go to Opus 5.5 before they are locked.
+- **The plan is in the repository.** `docs/plans/stage1.md` is a copy of the approved plan from the Plans panel (`stage1-physics-ground-truth_a726b4e3.plan.md`), so that future sessions read the milestone list there instead of searching transcripts. Its text is unchanged; a note after the front matter lists where later decisions supersede it (authorship, D-039; repository visibility, D-012 and D-023). It has the same seven milestones as the agent's reconstruction (only some names differ). Its milestone 3 adds one requirement that is now part of the scope: explicit state shapes and time units in the integrator interface.
+- **Push.** The owner asked for the local docs commit (D-040) and the plan file to be pushed to `main` together.
