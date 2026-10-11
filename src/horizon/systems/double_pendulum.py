@@ -1,8 +1,9 @@
 """Planar double pendulum: mass matrix, energies and equations of motion.
 
-The interface is fixed by D-028 and the function bodies are written by the project owner
-(D-003). The equations are derived in ``docs/derivations/double_pendulum.md``, and the frozen
-tests in ``tests/test_double_pendulum.py`` define "correct" (D-029 to D-034).
+The interface is fixed by D-028. The equations were derived and verified by the project owner
+and the function bodies were implemented by the agent (D-039). They are written out in
+``docs/derivations/double_pendulum.md``, and the frozen tests in
+``tests/test_double_pendulum.py`` define "correct" (D-029 to D-034).
 
 Conventions (D-028)
 -------------------
@@ -24,6 +25,7 @@ Conventions (D-028)
 
 from typing import NamedTuple
 
+import jax.numpy as jnp
 from jax import Array
 
 
@@ -76,7 +78,9 @@ def mass_matrix(theta: Array, params: Params) -> Array:
         Symmetric positive-definite matrix, shape ``(2, 2)``, in units of mass times length
         squared. It depends on the angles only through ``theta1 - theta2``.
     """
-    raise NotImplementedError("owner implements this: section 3 of the derivation")
+    m1, m2, L1, L2, _ = params
+    coupling = m2 * L1 * L2 * jnp.cos(theta[0] - theta[1])  # M12 = M21, uses theta1 - theta2
+    return jnp.array([[(m1 + m2) * L1**2, coupling], [coupling, m2 * L2**2]])
 
 
 def kinetic_energy(state: Array, params: Params) -> Array:
@@ -96,7 +100,8 @@ def kinetic_energy(state: Array, params: Params) -> Array:
     jax.Array
         Scalar (shape ``()``), in mass times length squared per time squared.
     """
-    raise NotImplementedError("owner implements this: section 2 of the derivation")
+    omega = state[2:]
+    return 0.5 * (omega @ mass_matrix(state[:2], params) @ omega)  # T = 1/2 omega^T M omega
 
 
 def potential_energy(state: Array, params: Params) -> Array:
@@ -116,7 +121,8 @@ def potential_energy(state: Array, params: Params) -> Array:
     jax.Array
         Scalar (shape ``()``), in the same units as the kinetic energy.
     """
-    raise NotImplementedError("owner implements this: section 2 of the derivation")
+    m1, m2, L1, L2, g = params
+    return -(m1 + m2) * g * L1 * jnp.cos(state[0]) - m2 * g * L2 * jnp.cos(state[1])
 
 
 def energy(state: Array, params: Params) -> Array:
@@ -134,15 +140,15 @@ def energy(state: Array, params: Params) -> Array:
     jax.Array
         Scalar (shape ``()``), in the same units as the kinetic energy.
     """
-    raise NotImplementedError("owner implements this: kinetic plus potential energy")
+    return kinetic_energy(state, params) + potential_energy(state, params)
 
 
 def acceleration(state: Array, params: Params) -> Array:
     """Return the angular accelerations ``(alpha1, alpha2)`` that solve ``M alpha = b``.
 
-    See section 3 of ``docs/derivations/double_pendulum.md``. Either a closed form or
-    ``jnp.linalg.solve`` is acceptable (D-033); the result must also work under
-    ``jax.jacfwd``.
+    See section 3 of ``docs/derivations/double_pendulum.md``. This is the closed-form solution
+    of the 2 x 2 system (D-039), written with ``jnp`` only and no branching on values, so it
+    also works under ``jit``, ``vmap`` and ``jax.jacfwd``.
 
     Parameters
     ----------
@@ -156,7 +162,21 @@ def acceleration(state: Array, params: Params) -> Array:
     jax.Array
         ``(alpha1, alpha2)``, shape ``(2,)``, in rad per unit time squared.
     """
-    raise NotImplementedError("owner implements this: section 3 of the derivation")
+    m1, m2, L1, L2, g = params
+    theta1, theta2, omega1, omega2 = state[0], state[1], state[2], state[3]
+    delta = theta1 - theta2
+    M = mass_matrix(state[:2], params)
+
+    # Right-hand side of M alpha = b (section 3). Velocities enter only as omega1^2, omega2^2.
+    coupling = m2 * L1 * L2 * jnp.sin(delta)
+    b1 = -coupling * omega2**2 - (m1 + m2) * g * L1 * jnp.sin(theta1)
+    b2 = coupling * omega1**2 - m2 * g * L2 * jnp.sin(theta2)
+
+    # Closed-form 2 x 2 solve; det M in its factored form, which is positive for m1, m2 > 0.
+    det = m2 * L1**2 * L2**2 * (m1 + m2 * jnp.sin(delta) ** 2)
+    alpha1 = (M[1, 1] * b1 - M[0, 1] * b2) / det
+    alpha2 = (M[0, 0] * b2 - M[0, 1] * b1) / det
+    return jnp.stack([alpha1, alpha2])
 
 
 def vector_field(state: Array, params: Params) -> Array:
@@ -177,4 +197,4 @@ def vector_field(state: Array, params: Params) -> Array:
     jax.Array
         ``d(state)/dt``, shape ``(4,)``.
     """
-    raise NotImplementedError("owner implements this: velocities followed by accelerations")
+    return jnp.concatenate([state[2:], acceleration(state, params)])
