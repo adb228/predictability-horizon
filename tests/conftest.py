@@ -11,6 +11,10 @@ from hypothesis import settings
 
 import horizon  # noqa: F401
 
+# ``pytester`` runs pytest in a subprocess for the timeout guard test (D-036). It must be
+# declared here, in the top-level conftest.
+pytest_plugins = ["pytester"]
+
 settings.register_profile(
     "default",
     derandomize=True,
