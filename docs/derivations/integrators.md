@@ -44,7 +44,7 @@ where `L` is a Lipschitz constant of `f` along the solution and `C` depends on d
 
 Take the scheme with every stage fraction equal to `½` and weights `(0, ⅓, ⅓, ⅓)`: `k2 = f(y + (h/2)k1)`, `k3 = f(y + (h/2)k2)`, `k4 = f(y + (h/2)k3)`, `y_{n+1} = y_n + h(k2 + k3 + k4)/3`. On `f(y) = Ay` its stages are `k2 = (A + (h/2)A²)y`, `k3 = (A + (h/2)A² + (h²/4)A³)y` and `k4 = (A + (h/2)A² + (h²/4)A³ + (h³/8)A⁴)y`, and the update gives the **same polynomial `R`** as in section 2.2. So it is fourth order on every linear constant-coefficient problem. But `Σ bᵢcᵢ² = (1/3)(1/4)·3 = 1/4`, not the `1/3` that the third-order condition requires, so on nonlinear problems it is only second order. Any gate made of linear problems alone passes it.
 
-That is why the exact-solution gate has two nonlinear problems, and test N1 runs this wrong scheme to show that it passes the two linear problems and fails the two nonlinear ones. The logistic problem is autonomous and scalar; for such problems the two order-4 trees `[[τ], τ]` and `[[τ, τ]]` have the same elementary differential, `f'' f' f²`, so it checks only the combination of their two conditions. The cubic rotation is a genuine two-dimensional system, which is why it is there too (D-044).
+That is why the exact-solution gate has two nonlinear problems, and test N1 runs this wrong scheme (called W2 there) to show that it passes the two linear problems and fails the two nonlinear ones. N1 also runs two schemes with a mistyped stage, which are not fourth order on anything: W1 evaluates `k3` at `y + (h/2)k1` instead of `y + (h/2)k2`, and W3 evaluates `k4` at `y + (h/2)k3` instead of `y + h k3`. N1 asserts only that the exact-solution gate fails for them. The logistic problem is autonomous and scalar; for such problems the two order-4 trees `[[τ], τ]` and `[[τ, τ]]` have the same elementary differential, `f'' f' f²`, so it checks only the combination of their two conditions. The cubic rotation is a genuine two-dimensional system, which is why it is there too (D-044).
 
 ## 3. Problems with exact solutions
 
@@ -126,7 +126,7 @@ All values were logged in D-044 to D-047 before any test ran against the impleme
 | wiring: setup | `dt = 0.005 t_s`, `T = 2 t_s`, outputs at `0, t_s, 2t_s`, reference `1e-12` | D-047 |
 | wiring: agreement and energy anchor | each `≤ 1e-5` | D-047 |
 
-The `IDENTITY` tolerance class of `tolerances.py` is used for the exact identities (R1 to R5, S1, X1 to X4); it is not a new threshold. Gate comparisons (a statistic at most a ceiling, a slope inside a band) go through two small helpers, `check_at_most` and `check_in_band`, which fail on NaN and infinity and report the margin used, so that no test can quietly use a looser rule.
+The `IDENTITY` tolerance class of `tolerances.py` is used for the exact identities (R1 to R5, S1, X1 to X4); it is not a new threshold. Gate comparisons (a statistic at most a ceiling, a slope inside a band, an error at least a floor) go through three small helpers, `check_at_most`, `check_in_band` and `check_at_least`, which fail on NaN and infinity and report the margin used, so that no test can quietly use a looser rule. K2 tests the helpers themselves.
 
 ## 8. Claims and the tests that check them
 
@@ -137,12 +137,12 @@ Tests are in `tests/test_integrators.py` (R, S), `tests/test_integrator_gates.py
 | One RK4 step on a linear problem equals `R(hA) y` | 2.2 | R1 | `IDENTITY` |
 | One RK4 step on a nonlinear polynomial field equals the same scheme in exact rational arithmetic | 2.1 | R2 | `IDENTITY` |
 | Row `k` of `rk4_trajectory` is the state after `k · stride` steps, and row 0 is the initial state | 1 | R3 | `IDENTITY` |
-| Shapes and dtype are as documented, and `jit` and `vmap` over states and over a batch of `Params` agree with the per-case result | 1 | R4 | `IDENTITY` |
+| Shapes and dtype are as documented, and `jit` and `vmap` over states, over a batch of `Params` and over `dt` agree with the per-case result | 1 | R4 | `IDENTITY` |
 | `n_out` and `stride` must be integers of at least 1, and a negative `dt` is accepted and follows `R` | 1, 2.2 | R5 | exact; `IDENTITY` for the formula |
 | `solve_reference` has the documented signature, defaults, shape and dtype, and its first row is the initial state | 1 | S1 | `IDENTITY` |
 | `t_eval` is validated, and a first time above zero works | 1 | S2 | exact, wrapper distance of D-044 |
 | A failed solve raises `RuntimeError` | 1 | S3 | exact |
-| A request below SciPy's `rtol` floor raises instead of being clamped | 4 | S4 | exact |
+| A request below SciPy's `rtol` floor raises instead of being clamped, and the self-check tolerance `2.5e-14` is accepted | 4 | S4 | exact |
 | Each closed-form solution satisfies its equation and initial condition | 3 | X1 to X4 | `IDENTITY` |
 | RK4 converges at order 4 on all four exact problems, stays under the declared ceiling, and the wrapper is within the declared distance | 2.3, 3 | G1 | slope band, ceiling |
 | RK4 converges at order 4 against the reference on regular pendulum states, outside the reference's noise floor | 2.3, 4 | G2 | slope band, validity rule |
@@ -150,11 +150,12 @@ Tests are in `tests/test_integrators.py` (R, S), `tests/test_integrator_gates.py
 | RK4 and DOP853 agree on regular states over the declared horizon | 5 | G4 | worst case `≤` tolerance |
 | RK4 and the wrapper agree on non-default parameters in units of `t_s` | 6 | G5 | worst case `≤` tolerance |
 | Both trajectories conserve the energy of their own parameter set to the declared tolerance | 6 | G6 | worst case `≤` tolerance |
-| A scheme that is fourth order on linear problems but second order in general passes the linear problems and fails the nonlinear ones | 2.4 | N1 | slope band |
+| A scheme that is fourth order on linear problems but second order in general (W2) passes the linear problems and fails the nonlinear ones; two schemes with a mistyped stage (W1, W3) fail every problem | 2.4 | N1 | slope band, ceiling |
 | Swapping `L1` and `L2` in RK4 fails the wiring check | 6 | N2 | worst case `>` tolerance |
 | Giving both integrators the same wrong parameters passes the agreement check and fails the energy anchor | 6 | N3 | both tolerances |
 | The seeded cases have the declared counts, ranges and energies, and are reproducible from their streams | 5, 6 | C1 to C3 | exact |
 | The register holds the declared values | 7 | K1 | exact |
+| The check helpers fail on NaN and infinity, outside their limits and on a zero floor, and the slope helper recovers an exact power law | 7 | K2 | exact |
 
 **What each family cannot catch.**
 
