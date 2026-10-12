@@ -3,8 +3,7 @@
 The interface is fixed by D-042 and D-043, and the gates that define "correct" were declared
 in D-044 to D-047 before any code existed. The scheme, the solver and the limits on how far two
 integrators can agree are written out in ``docs/derivations/integrators.md``. The function
-bodies were implemented by the agent after the walkthrough (D-039, D-041); this file is the
-interface skeleton, committed with the tests that stay red until the implementation lands.
+bodies were implemented by the agent after the walkthrough (D-039, D-041).
 
 Conventions (D-042)
 -------------------
@@ -20,12 +19,17 @@ Conventions (D-042)
 * Integrated angles are never wrapped (D-010); nothing here knows what the state means.
 """
 
+import warnings
 from collections.abc import Callable
+from functools import partial
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 from jax import Array
 from jax.typing import ArrayLike
 from numpy.typing import NDArray
+from scipy.integrate import solve_ivp
 
 
 def rk4_step[P](
@@ -38,6 +42,10 @@ def rk4_step[P](
     ``docs/derivations/integrators.md``). There is no check on ``dt``: a negative step is legal
     and integrates backward in time, which the reversibility tests of milestone 4 need.
 
+    The function is not compiled by itself. It works eagerly, under ``jax.jit`` (with ``f``
+    static) and under ``jax.vmap``; to call it many times from Python, wrap it in ``jax.jit``
+    or use ``rk4_trajectory``.
+
     Parameters
     ----------
     f : callable
@@ -45,16 +53,52 @@ def rk4_step[P](
     state : array_like
         The state ``y``, shape ``(n,)``.
     params : pytree
-        Passed through to ``f``. Traced, so it may be batched with ``jax.vmap``.
+        Passed through to ``f``. May be batched with ``jax.vmap``.
     dt : float
-        Step ``h`` in the time unit of ``f``. Traced, so it may be batched too.
+        Step ``h`` in the time unit of ``f``. May be batched too.
 
     Returns
     -------
     jax.Array
         The state after one step, shape ``(n,)``, ``float64``.
     """
-    raise NotImplementedError("rk4_step is not implemented yet (milestone 3, D-048)")
+    y = jnp.asarray(state, dtype=jnp.float64)
+    k1 = f(y, params)
+    k2 = f(y + 0.5 * dt * k1, params)
+    k3 = f(y + 0.5 * dt * k2, params)
+    k4 = f(y + dt * k3, params)
+    return y + dt / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+
+
+def _require_count(value: object, name: str) -> None:
+    """Raise unless ``value`` is a Python ``int`` of at least 1 (``bool`` is not accepted)."""
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"{name} must be an int, got {type(value).__name__}")
+    if value < 1:
+        raise ValueError(f"{name} must be at least 1, got {value}")
+
+
+@partial(jax.jit, static_argnames=("f", "n_out", "stride"))
+def _rk4_trajectory[P](
+    f: Callable[[Array, P], Array],
+    state0: ArrayLike,
+    params: P,
+    dt: ArrayLike,
+    n_out: int,
+    stride: int,
+) -> Array:
+    """Compiled core of ``rk4_trajectory``: two nested scans, only the output rows are stored."""
+    y0 = jnp.asarray(state0, dtype=jnp.float64)
+
+    def inner(y: Array, _: None) -> tuple[Array, None]:
+        return rk4_step(f, y, params, dt), None
+
+    def outer(y: Array, _: None) -> tuple[Array, Array]:
+        y, _ = jax.lax.scan(inner, y, None, length=stride)
+        return y, y
+
+    _, rows = jax.lax.scan(outer, y0, None, length=n_out)
+    return jnp.concatenate([y0[None], rows])
 
 
 def rk4_trajectory[P](
@@ -106,7 +150,9 @@ def rk4_trajectory[P](
         If ``n_out`` or ``stride`` is less than 1. Zero steps would otherwise return the
         initial state in every row without any warning.
     """
-    raise NotImplementedError("rk4_trajectory is not implemented yet (milestone 3, D-048)")
+    _require_count(n_out, "n_out")
+    _require_count(stride, "stride")
+    return _rk4_trajectory(f, state0, params, dt, n_out, stride)
 
 
 def solve_reference[P](
@@ -162,4 +208,32 @@ def solve_reference[P](
         Any warning SciPy emits, raised as an exception (for example a ``UserWarning`` for an
         ``rtol`` below ``100 * eps``).
     """
-    raise NotImplementedError("solve_reference is not implemented yet (milestone 3, D-048)")
+    times = np.asarray(t_eval, dtype=np.float64)
+    if times.ndim != 1 or times.size == 0:
+        raise ValueError(f"t_eval must be a non-empty one-dimensional array, got {times.shape}")
+    if not np.all(np.isfinite(times)):
+        raise ValueError("t_eval must contain only finite times")
+    if times[0] < 0.0:
+        raise ValueError(f"t_eval[0] must be at least 0, got {times[0]}")
+    if not np.all(np.diff(times) > 0.0):
+        raise ValueError("t_eval must be strictly increasing")
+
+    compiled = jax.jit(f)
+
+    def rhs(t: float, y: NDArray[np.float64]) -> NDArray[np.float64]:
+        return np.asarray(compiled(jnp.asarray(y), params), dtype=np.float64)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # SciPy clamps a too-small rtol and only warns
+        solution = solve_ivp(
+            rhs,
+            (0.0, float(times[-1])),
+            np.asarray(state0, dtype=np.float64),
+            method="DOP853",
+            t_eval=times,
+            rtol=rtol,
+            atol=atol,
+        )
+    if solution.status != 0:
+        raise RuntimeError(f"DOP853 stopped with status {solution.status}: {solution.message}")
+    return np.asarray(solution.y.T, dtype=np.float64)
