@@ -696,3 +696,165 @@ The brief (section 3, Stage 1) lists five validation tests. Milestone 3 delivere
 - **Instructions:** (1) build milestone 4 on a local branch, `milestone-4-physics-validation`, with no push and no pull request without the owner's say-so. (2) For future GitHub merges the agent passes the noreply address with `gh pr merge --author-email` and confirms on the first merge that the merge commit's author is the noreply identity; if it still shows the university address, the merge is reported to the owner. (3) The agent lists what in `docs/BRIEF.md` section 1 the owner may not want public, without editing it; the list was given in chat and the owner decides.
 - **Correction to D-056:** the parenthetical "the Hann main lobe is 32 padded bins" is wrong. The padded length is the power of two that is at least 8 times the record, `2^18 = 262144` for 20000 samples, a padding factor of about 13, so the main lobe (4 original bins) is about 52 padded bins. The separation of 40 padded bins is unchanged: it only has to exclude a second local maximum on the same peak, and the two real peaks are over 2000 padded bins apart (the note, section 3.3). No value changes.
 - **Not sent to Opus 5.5:** (1) and (2) are the owner's decisions about their own account and workflow, and the correction changes no value.
+
+### D-062 Milestone 4 built; every gate passed (2026-10-13)
+- **Built, in commit order**, on the local branch `milestone-4-physics-validation` (not pushed): `c835e95` the derivation note and D-061; `30c1b7c` the register (every value of D-052 to D-060) with the tripwire K1; `ea1000a` the shared module `tests/physics_checks.py` and the tests (E1, E2, F, V1 to V3, the controls, C1 to C3, K1 and K2); `99fe2dc` the script; and the commit that adds this entry. The agent wrote all of it after the walkthrough (D-039, D-061).
+- **Nothing was adjusted.** `git diff 30c1b7c HEAD -- src/horizon/tolerances.py` is empty: no threshold, state count, stream, horizon or timeout changed after the register was declared. Nothing of milestone 2 or 3 was touched: no change to the integrators, the mechanics, the tests of milestones 2 and 3, or the milestone 3 script. All 55 new tests passed on their first run, and the edits after that were to line lengths and to where the two FFT parameter sets live (which changes only test ids). There was no red phase because the code under test exists (D-052); the evidence that the gates can fail is the controls and the mutants below.
+- **Results.** The output of `uv run python -m experiments.stage1.physics_validation`, run from a clean working tree at commit `99fe2dc` (the script's own provenance header; the laptop; exit status 0), pasted unedited. The numbers in a report must come from the milestone 7 entry point (D-048).
+
+```
+Provenance (D-019, D-048)
+  git commit   99fe2dcd4afb2c9e959082fb6676d2dba7c30a9c   (clean)
+  python       3.12.11
+  jax          0.11.2
+  jaxlib       0.11.2
+  numpy        2.5.3
+  scipy        1.18.1
+
+The brief's five validation tests (docs/BRIEF.md section 3, Stage 1)
+
+1. Energy drift (D-053 to D-055): max over integer times of |E(t) - E(0)| / E_s, E_s = 3
+   E1: DOP853 at its defaults (rtol = atol = 1e-12), T = 1000; ceiling 1e-09, the brief's number.
+   D(t) is the running maximum up to t (the growth law); 'literal' is |dE| / |E(0)|.
+   regular
+   state     E(0)     D(100)     D(300)    D(1000)  D/ceiling      literal  verdict
+       0   -2.845   1.66e-12   4.51e-12   1.49e-11      0.015     1.57e-11  ok
+       1   -2.793   1.69e-13   3.85e-13   1.32e-12      0.001     1.41e-12  ok
+   drift over E_s: maximum 1.486e-11, median 8.090e-12, minimum 1.317e-12; the ceiling is 67.28 times the maximum
+   literal |dE| / |E(0)| shown for 2 of 2 states (|E(0)| >= 0.3); 0 of them exceed 1e-09
+   chaotic-ish
+   state     E(0)     D(100)     D(300)    D(1000)  D/ceiling      literal  verdict
+       0    0.264   2.50e-11   8.02e-11   2.47e-10      0.247  below floor  ok
+       1    0.887   2.36e-11   8.27e-11   3.00e-10      0.300     1.02e-09  ok
+       2    1.220   3.08e-11   8.74e-11   3.21e-10      0.321     7.89e-10  ok
+       3    2.776   6.33e-11   1.65e-10   4.87e-10      0.487     5.26e-10  ok
+       4    0.021   2.29e-11   7.34e-11   2.18e-10      0.218  below floor  ok
+   drift over E_s: maximum 4.869e-10, median 3.003e-10, minimum 2.182e-10; the ceiling is 2.05 times the maximum
+   literal |dE| / |E(0)| shown for 3 of 5 states (|E(0)| >= 0.3); 1 of them exceed 1e-09 (largest 1.02e-09)
+   moving (not gated, D-054)
+   state     E(0)     D(100)     D(300)    D(1000)  D/ceiling      literal  verdict
+       0    3.394   5.90e-11   1.73e-10   4.76e-10      0.476     4.21e-10  report only
+       1    4.404   6.72e-11   1.88e-10   8.08e-10      0.808     5.50e-10  report only
+       2    0.236   3.22e-11   8.25e-11   2.58e-10      0.258  below floor  report only
+       3    0.224   2.26e-11   7.72e-11   2.47e-10      0.247  below floor  report only
+       4    0.183   2.65e-11   8.00e-11   2.58e-10      0.258  below floor  report only
+       5    2.376   5.88e-11   1.31e-10   3.89e-10      0.389     4.91e-10  report only
+       6    5.478   7.27e-11   2.43e-10   9.52e-10      0.952     5.21e-10  report only
+       7    6.300   8.38e-12   1.41e-10   9.31e-10      0.931     4.43e-10  report only
+   drift over E_s: maximum 9.523e-10, median 4.324e-10, minimum 2.469e-10; the ceiling is 1.05 times the maximum
+   literal |dE| / |E(0)| shown for 5 of 8 states (|E(0)| >= 0.3); 0 of them exceed 1e-09
+   moving states come within 1.05 times of the ceiling (the margin of the reference tolerance, which is why they are not gated).
+
+   E2: RK4 at dt = 0.01, T = 1000
+   regular      n = 12  maximum 2.631e-09  median 3.802e-10  minimum 5.992e-12  ceiling 1e-07  ratio 0.0263  ok
+   chaotic-ish  n = 30  maximum 2.051e-05  median 7.169e-06  minimum 2.350e-06  ceiling 5e-04  ratio 0.0410  ok
+   moving       n =  8  maximum 1.473e-04  median 2.245e-05  minimum 2.456e-06  report only
+   section 1 took (165 s)
+
+2. Small-angle FFT (D-056): A = 0.001, 20000 samples at 0.05 t_s, tolerance 1e-05 relative
+   set integrator mode      peak    measured    analytic  rel. error   ratio  verdict
+   F1  dop853     mode 1       1   0.7653668   0.7653669    1.21e-07   0.012  ok
+   F1  dop853     mode 2       1   1.8477556   1.8477591    1.86e-06   0.186  ok
+   F1  dop853     generic      1   0.7653668   0.7653669    4.13e-08   0.004  ok
+   F1  dop853     generic      2   1.8477582   1.8477591    4.58e-07   0.046  ok
+   F1  rk4        mode 1       1   0.7653668   0.7653669    1.21e-07   0.012  ok
+   F1  rk4        mode 2       1   1.8477556   1.8477591    1.86e-06   0.186  ok
+   F1  rk4        generic      1   0.7653668   0.7653669    4.14e-08   0.004  ok
+   F1  rk4        generic      2   1.8477582   1.8477591    4.59e-07   0.046  ok
+   F2  dop853     mode 1       1   2.8652010   2.8652013    1.21e-07   0.012  ok
+   F2  dop853     mode 2       1   6.9171950   6.9172078    1.86e-06   0.186  ok
+   F2  dop853     generic      1   2.8652012   2.8652013    4.13e-08   0.004  ok
+   F2  dop853     generic      2   6.9172047   6.9172078    4.58e-07   0.046  ok
+   F2  rk4        mode 1       1   2.8652010   2.8652013    1.21e-07   0.012  ok
+   F2  rk4        mode 2       1   6.9171950   6.9172078    1.86e-06   0.186  ok
+   F2  rk4        generic      1   2.8652012   2.8652013    4.14e-08   0.004  ok
+   F2  rk4        generic      2   6.9172047   6.9172078    4.59e-07   0.046  ok
+   section 2 took (12 s)
+
+3. Time reversibility (D-057): forward T, flip omega, forward T, flip back; the largest absolute
+   difference from the initial state over the four components
+   V1 DOP853        regular      T = 100  n = 12  maximum 3.775e-10  median 8.217e-12  minimum 3.455e-12  ceiling 5e-09  ratio 0.0755  ok
+   V2 RK4 dt = 0.01 regular      T = 100  n = 12  maximum 6.703e-08  median 3.076e-09  minimum 8.360e-11  ceiling 1e-06  ratio 0.0670  ok
+   V1 DOP853        chaotic-ish  T = 8    n = 30  maximum 6.447e-10  median 2.516e-11  minimum 1.358e-12  ceiling 5e-08  ratio 0.0129  ok
+   V2 RK4 dt = 0.01 chaotic-ish  T = 8    n = 30  maximum 2.029e-05  median 2.980e-07  minimum 1.807e-09  ceiling 2e-03  ratio 0.0101  ok
+   V3 RK4 with -dt against S RK4(dt) S, T = 8: largest difference 0.00e+00  ok/ok (regular/chaotic-ish)
+   section 3 took (15 s)
+
+4. Convergence order (brief test 4): milestone 3's G1 and G2, sections A and B below
+
+A. Exact-solution problems (D-044): worst |RK4 - exact| over t = 0, 1, ..., T
+   grid dt = 0.04, 0.02, 0.01, 0.005
+   slope band [3.9, 4.1]; wrapper bound 1e-10
+   problem     T    err(0.04)    err(0.02)    err(0.01)   err(0.005)   slope  finest/ceiling    wrapper
+   harmonic   10    1.126e-05    7.036e-07    4.396e-08    2.747e-09   4.000           0.092   4.62e-12   ok/ok/ok
+   linear      5    4.614e-07    2.786e-08    1.711e-09    1.060e-10   4.029           0.053   8.99e-13   ok/ok/ok
+   logistic    5    2.999e-09    1.891e-10    1.187e-11    7.435e-13   3.993           0.099   1.05e-12   ok/ok/ok
+   rotation    5    4.412e-06    2.775e-07    1.739e-08    1.089e-09   3.995           0.099   5.07e-12   ok/ok/ok
+   verdicts: slope / ceiling / wrapper. A ratio of at most 1 is inside the bound.
+
+B. Pendulum convergence (D-045): regular states, default parameters, T = 10
+   reference rtol = atol = 1e-13; self-check reference 2.5e-14; slope band [3.8, 4.2]
+   validity: the error at dt = 0.005 must be at least 30 times the reference's own error
+   state   slope  err(finest)  self-error    ratio  verdict
+       0   3.982    1.444e-10   2.186e-13    660.4  ok/ok
+       1   3.957    2.773e-10   1.366e-13   2030.9  ok/ok
+       2   3.995    2.547e-10   4.473e-13    569.3  ok/ok
+       3   3.971    2.705e-10   3.919e-13    690.3  ok/ok
+       4   3.972    2.032e-10   2.980e-13    681.9  ok/ok
+       5   3.997    2.358e-10   1.237e-13   1907.1  ok/ok
+       6   3.889    2.954e-10   3.083e-13    958.2  ok/ok
+       7   3.884    2.946e-10   1.338e-13   2202.0  ok/ok
+       8   4.005    2.120e-10   1.275e-13   1663.0  ok/ok
+       9   4.001    2.278e-10   6.850e-14   3325.5  ok/ok
+      10   3.989    8.329e-11   4.458e-13    186.8  ok/ok
+      11   3.994    2.930e-11   2.282e-13    128.4  ok/ok
+   slopes 3.884 to 4.005; smallest error / self-error 128.4
+   verdicts: slope / validity.
+
+5. Agreement of RK4 and DOP853 (brief test 5): milestone 3's G3 and G4, section C below
+
+C. Agreement of RK4 and DOP853 (D-046): default parameters, dt = 0.01
+   chaotic-ish states  T = 8   worst |RK4 - DOP853| = 3.617e-06  bound 1e-04  ratio 0.036  ok
+   regular states      T = 50  worst |RK4 - DOP853| = 2.218e-08  bound 1e-06  ratio 0.022  ok
+
+   Error growth for the chaotic-ish ensemble (non-gating, D-046(c)):
+     t      median     maximum
+     0   0.000e+00   0.000e+00
+     1   1.390e-10   4.448e-10
+     2   1.595e-09   6.522e-08
+     3   2.505e-08   1.432e-07
+     4   3.336e-08   2.382e-07
+     5   4.407e-08   4.300e-07
+     6   5.779e-08   9.371e-07
+     7   8.379e-08   1.916e-06
+     8   1.189e-07   3.617e-06
+
+   Error growth for the regular states (non-gating), maximum over states:
+   t=0: 0.00e+00  t=10: 4.59e-09  t=20: 1.00e-08  t=30: 1.31e-08  t=40: 1.81e-08  t=50: 2.05e-08
+
+All checks are within the declared thresholds.
+```
+
+- **Reading the output.**
+  - **E1.** All seven gate states are under `1e-9`. The chaotic-ish maximum is 4.87e-10, so the ceiling is 2.05 times it (the calibration's largest of 20 was 4.66e-10); the regular maximum is 1.49e-11. The running maximum of the drift grows roughly in proportion to `t`: for the worst state 6.33e-11 at `t = 100`, 1.65e-10 at 300 and 4.87e-10 at 1000, a factor of 7.7 for a factor of 10 in time.
+  - **Moving states (not gated).** Maximum 9.52e-10, with two states at 9.31e-10 and 9.52e-10: they come within **1.05 times** of the brief's `1e-9`, closer than the 1.1 to 1.3 times logged in D-054 from the calibration, which confirms that gating them would be a coin flip.
+  - **The literal ratio (D-053).** It is shown for 3 of the 5 chaotic-ish gate states (the other two have `|E(0)|` below 0.3, listed). One of the three, with `E(0) = 0.887`, has a literal ratio of 1.02e-9, above the brief's number, while its `E_s` drift is 3.0e-10: the case D-053 says can happen, and the reason the brief's literal wording could not be the gate.
+  - **E2.** RK4 at `dt = 0.01`: regular maximum 2.63e-9 (ratio 0.026 of the ceiling `1e-7`), chaotic-ish 2.05e-5 (ratio 0.041 of `5e-4`). The chaotic-ish median is 7.17e-6 against DOP853's 3.00e-10, about four orders of magnitude, as logged in D-055.
+  - **F.** Every peak is within 1.86e-6 relative (0.186 of the tolerance `1e-5`), for both integrators and both parameter sets; F2 reproduces F1 to three digits, as the physics is the same in rescaled time.
+  - **V.** The ratios to the ceilings are 0.0755 (V1 regular), 0.0670 (V2 regular), 0.0129 (V1 chaotic-ish) and 0.0101 (V2 chaotic-ish). V3's difference is exactly 0, because the two sides are the same arithmetic with signs flipped.
+  - **Tests 4 and 5** are milestone 3's numbers, unchanged from D-050 (slopes 3.884 to 4.005; chaotic-ish agreement 3.617e-6).
+- **Mutants (uncommitted lab, not results; no script is committed).** Eight deliberate breakages of the code under test were run against the new tests, and each was caught by at least one test; every file was restored byte for byte, and the unmutated baseline passed (42 tests, E1 left out for speed). Failing tests by family:
+  - M1, a damping term `-1e-6 omega` in the field: failing E1 7, E2 2, V1 2, V2 2, V3 2.
+  - M2, `k3` evaluated from `k1` in RK4 (W1): failing E2 2, F 4, V2 2.
+  - M3, DOP853 default `rtol = atol = 1e-10`: failing E1 6, V1 2 (six of the seven gate states).
+  - M4, the whole field multiplied by 1.001 (a pure time rescaling): failing F 12.
+  - M5, a term `+1e-6 omega2` in `alpha1` (odd in `omega`): failing E1 7, E2 1, V1 2, V2 2, V3 2.
+  - M6, a wrong energy function (`m1 + m2` replaced by `m1` in `V`): failing C2 3, E1 7, E2 2.
+  - M7, one RK4 step too few per output row: failing F 6.
+  - M8, the FFT estimator without the parabolic refinement: failing F 12, K2 1.
+
+  The two that only F catches, the time rescaling (M4) and the dropped step (M7), show that the blind spots of E and V stated in the note are real: a pure time rescaling conserves the energy and is time-reversal symmetric.
+- **What passing shows, and what it does not.** It shows that DOP853 at the brief's tolerance conserves the energy of the declared rest-start states to `1e-9` (against `E_s`) over `t = 1000`, that RK4 at `dt = 0.01` stays within its ceilings, that the simulated small oscillations have the analytic normal-mode frequencies to `1e-5` for both integrators and two parameter sets, and that both integrators retrace their path within the ceilings. It does not show the energy conservation of moving states (reported, 1.05 times from the ceiling), reversibility beyond `T = 8` in chaotic motion, anything in a regime that the ensembles do not sample, or anything about Linux: the branch is not pushed, so CI has not run.
+- **Details the design left open, filled in by the implementer.** The controls match the message "exceeds the ceiling", so a NaN cannot satisfy them. The E1 damped-field controls run on the first regular and the first chaotic-ish gate state, the reference-tolerance controls on the first two chaotic-ish gate states, and the V1 damped control on the first three regular states. The V2 controls are per ensemble, as in D-058. The FFT parameter sets live in `tests/physics_checks.py`, which also holds `FLIP`; the controls of V2 import the wrong schemes of milestone 3 from its test module. The script reuses milestone 3's report functions for tests 4 and 5 and prints the duration of each section.
+- **Cost, measured on the laptop (uncommitted timing; CI has not run).** The full suite takes 199.9 s for 538 tests (483 tests took about 45 s before); the 55 new tests take about 155 s. E1: the seven gate states take 5 to 16 s each (about 72 to 76 s over two runs) and its four controls about 32 to 34 s, so about 104 s in all, against the 73 s that D-054 estimated (the estimate left out the two damped-field controls); V1 on the regular states takes about 11 s (D-059 said about 7 s). The script takes about 3.5 minutes (section 1: 165 s). With the runner 2.4 to 3.4 times slower than the laptop (milestones 2 and 3), the suite should take about 8 to 11 minutes on CI against the 20-minute job limit, a thinner margin than before; the measured duration of the E1 tests on the runner is logged after the first CI run (D-059).
+- **Still to do:** push the branch and open the pull request (the owner's go-ahead); the first CI run and the E1 durations on the runner; merge with the noreply author address and confirm it (D-061); the pre-public docs cleanup and the history scan (D-060); the owner's decision on going public. The three interview questions (brief section 7) were given in chat on 2026-10-13.
