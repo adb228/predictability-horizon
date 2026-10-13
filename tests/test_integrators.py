@@ -350,6 +350,24 @@ def test_s2_a_first_time_above_zero_is_accepted() -> None:
     )
 
 
+def test_s2_a_t_eval_of_only_zero_returns_the_initial_state() -> None:
+    """S2 (class exact): ``t_eval = (0,)`` is legal and gives one row, the initial state.
+
+    For a zero-length span SciPy reports success but returns empty lists for ``t`` and ``y``,
+    which made the wrapper fail with an ``AttributeError`` (found in the review of the milestone
+    3 pull request). Catches that crash, a wrong shape or dtype, a state that is not returned
+    exactly, and a result that shares memory with the caller's array. Blind to the other
+    ``t_eval`` rules.
+    """
+    state0 = np.array([2.0, -1.0])
+    rows = integrators.solve_reference(_decay, state0, 3.0, np.array([0.0]))
+    assert isinstance(rows, np.ndarray)
+    assert rows.dtype == np.float64
+    assert rows.shape == (1, 2)
+    assert np.array_equal(rows[0], state0)
+    assert not np.shares_memory(rows, state0)
+
+
 def test_s3_a_failed_solve_raises_a_runtime_error() -> None:
     """S3 (class exact): SciPy reports failure (non-zero status) and the wrapper raises.
 
