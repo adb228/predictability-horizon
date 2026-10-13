@@ -689,3 +689,10 @@ The brief (section 3, Stage 1) lists five validation tests. Milestone 3 delivere
 - **(b)** The derive-and-verify choice (D-039): a short walkthrough only, as in milestone 3, to be given before any code. The three topics are the energy drift of the two integrators, what limits the accuracy of an FFT frequency estimate, and why the flow is reversible while a numerical method is only approximately so.
 - **(c)** Push this log, and wait for the owner's go-ahead before building.
 - **(d)** The personal-data findings of D-060: answered in part. The owner chose to remove the address from D-021's text going forward (history unchanged), which is done. Open: the two merge commits' author field, the identity for future merges, scrubbing history, and BRIEF section 1.
+
+## Milestone 4: the build (2026-10-13)
+
+### D-061 The owner's instructions after the design review, and a correction to D-056 (2026-10-13)
+- **Instructions:** (1) build milestone 4 on a local branch, `milestone-4-physics-validation`, with no push and no pull request without the owner's say-so. (2) For future GitHub merges the agent passes the noreply address with `gh pr merge --author-email` and confirms on the first merge that the merge commit's author is the noreply identity; if it still shows the university address, the merge is reported to the owner. (3) The agent lists what in `docs/BRIEF.md` section 1 the owner may not want public, without editing it; the list was given in chat and the owner decides.
+- **Correction to D-056:** the parenthetical "the Hann main lobe is 32 padded bins" is wrong. The padded length is the power of two that is at least 8 times the record, `2^18 = 262144` for 20000 samples, a padding factor of about 13, so the main lobe (4 original bins) is about 52 padded bins. The separation of 40 padded bins is unchanged: it only has to exclude a second local maximum on the same peak, and the two real peaks are over 2000 padded bins apart (the note, section 3.3). No value changes.
+- **Not sent to Opus 5.5:** (1) and (2) are the owner's decisions about their own account and workflow, and the correction changes no value.
