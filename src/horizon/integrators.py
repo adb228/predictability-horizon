@@ -12,8 +12,8 @@ Conventions (D-042)
   shape ``(n,)``. It must be a pure JAX function with no Python branching on values.
 * Time has the units that ``f`` uses. For the double pendulum that is ``sqrt(L1 / g)``
   (section 8 of ``docs/derivations/double_pendulum.md``), which is 1 for the default
-  parameters. No function here takes or returns a times array: output times follow from
-  ``dt``, ``stride`` and the row index.
+  parameters. The RK4 functions take and return no times array: their output times follow from
+  ``dt``, ``stride`` and the row index. Only ``solve_reference`` takes times, as ``t_eval``.
 * One state is integrated per call (D-028). Batch with ``jax.vmap``, over states or over a
   ``Params`` whose fields are arrays.
 * Integrated angles are never wrapped (D-010); nothing here knows what the state means.
@@ -200,13 +200,14 @@ def solve_reference[P](
     Raises
     ------
     ValueError
-        If ``t_eval`` is empty, starts below 0, or is not strictly increasing.
+        If ``t_eval`` is not one-dimensional, is empty or not finite, starts below 0, or is not
+        strictly increasing.
     RuntimeError
         If SciPy reports a failed integration (a non-zero status), for example a step size
         that underflows near a singularity.
     Warning
-        Any warning SciPy emits, raised as an exception (for example a ``UserWarning`` for an
-        ``rtol`` below ``100 * eps``).
+        Any warning raised during the solve, from SciPy, from JAX or from ``f``, raised as an
+        exception (for example a ``UserWarning`` for an ``rtol`` below ``100 * eps``).
     """
     times = np.asarray(t_eval, dtype=np.float64)
     if times.ndim != 1 or times.size == 0:
@@ -236,4 +237,8 @@ def solve_reference[P](
         )
     if solution.status != 0:
         raise RuntimeError(f"DOP853 stopped with status {solution.status}: {solution.message}")
+    if times[-1] == 0.0:
+        # Only t_eval == [0.0] gets here (t_eval is increasing and starts at 0 or above). For a
+        # zero-length span SciPy reports success but returns empty lists, so answer directly.
+        return np.array(state0, dtype=np.float64)[None, :]
     return np.asarray(solution.y.T, dtype=np.float64)
