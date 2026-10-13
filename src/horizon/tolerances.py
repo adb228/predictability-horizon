@@ -1,9 +1,9 @@
 """Predeclared tolerances and the single comparison rule behind every numeric gate.
 
-Governed by D-025 and D-031 in ``docs/DECISIONS.md``. Every value below was recorded in that
-log before any test ran against the code it governs. **Changing any value here requires
-Opus 5.5's approval first, logged in the decision log (D-025).** The git history of this
-file is the audit trail.
+Governed by D-025 and D-031 in ``docs/DECISIONS.md``, and for the integrator gates by D-044 to
+D-048. Every value below was recorded in that log before any test ran against the code it
+governs. **Changing any value here requires Opus 5.5's approval first, logged in the decision
+log (D-025).** The git history of this file is the audit trail.
 
 The rule
 --------
@@ -32,6 +32,7 @@ Reproducibility of the test cases is tied to the NumPy version locked in ``uv.lo
 """
 
 import math
+from typing import NamedTuple
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -121,6 +122,157 @@ SCALE_FACTORS: tuple[float, float] = (0.5, 3.0)
 
 PERIODICITY_SHIFTS: tuple[int, int] = (-1, 1)
 """Integer multiples of ``2 pi`` added to each angle in the periodicity test."""
+
+# --- Milestone 3: integrator gates (D-044 to D-048) -----------------------------------------
+#
+# Declared in the decision log before any milestone 3 test ran against the implementation.
+# They are not measurements: the calibration behind them is uncommitted lab work described in
+# the log. Times of the pendulum gates are in units of ``sqrt(L1 / g)``, which is 1 for the
+# default parameters. The owner asked that none of these be changed after seeing results from
+# the implementation; a change also needs Opus 5.5's approval first (D-025).
+#
+# The streams below are ``np.random.default_rng([CASES_SEED, stream])``. The lab used other
+# seeds, so no calibration sample is a gate sample.
+
+
+class ExactGate(NamedTuple):
+    """Horizon and error ceiling of one exact-solution problem (D-044)."""
+
+    name: str
+    horizon: int
+    ceiling: float
+
+
+EXACT_DT_GRID: tuple[float, float, float, float] = (0.04, 0.02, 0.01, 0.005)
+"""Step sizes of the exact-solution gate and of the pendulum convergence gate.
+
+Outputs are at the integer times ``t = 0, 1, ..., T``, so ``stride = round(1 / dt)`` steps
+separate two outputs (D-044).
+"""
+
+EXACT_SLOPE_BAND: tuple[float, float] = (3.9, 4.1)
+"""The least-squares slope of ``log(error)`` against ``log(dt)`` must lie in this band for
+each exact-solution problem (D-044). Fourth order means a slope of 4."""
+
+EXACT_GATES: tuple[ExactGate, ...] = (
+    ExactGate("harmonic", 10, 3e-8),
+    ExactGate("linear", 5, 2e-9),
+    ExactGate("logistic", 5, 7.5e-12),
+    ExactGate("rotation", 5, 1.1e-8),
+)
+"""Per problem: the horizon ``T`` and the ceiling on RK4's error at ``dt = 0.005`` (D-044).
+
+Basis: D-044 sized each ceiling at 10 to 18 times the error seen in the calibration
+(uncommitted lab work, described in the log), so a wrong constant factor fails and rounding
+does not.
+"""
+
+EXACT_WRAPPER_TOL: float = 1e-10
+"""Largest allowed distance between the DOP853 wrapper (default tolerances) and the exact
+solution, on all four exact-solution problems (D-044)."""
+
+CONV_STREAM: int = 2000
+"""Stream of the regular states of the convergence gate, also used by the regular agreement
+gate (D-045). Drawn as ``rng.uniform(-REGULAR_THETA_MAX, REGULAR_THETA_MAX, size=(N, 2))``."""
+
+N_REGULAR_STATES: int = 12
+"""Number of regular states (``omega = 0``) in the convergence and regular agreement gates."""
+
+REGULAR_THETA_MAX: float = 0.4
+"""Regular states have both angles uniform in ``[-REGULAR_THETA_MAX, REGULAR_THETA_MAX]``.
+
+The amplitude bound is declared in advance because RK4's slope is pre-asymptotic at larger
+amplitudes (D-045).
+"""
+
+CONV_T: int = 10
+"""Horizon of the convergence gate, with outputs at ``t = 0, 1, ..., CONV_T`` (D-045)."""
+
+CONV_DT_GRID: tuple[float, float, float, float] = (0.04, 0.02, 0.01, 0.005)
+"""Step sizes of the convergence gate (D-045). D-045 excluded a finer grid because its smallest
+step would sit too close to the reference's own error."""
+
+CONV_REFERENCE_TOL: float = 1e-13
+"""``rtol`` and ``atol`` of the reference in the convergence gate and in the regular agreement
+gate only (D-045, D-046). The wrapper's default stays ``1e-12``."""
+
+CONV_SELF_CHECK_TOL: float = 2.5e-14
+"""``rtol`` and ``atol`` of the second reference used to measure the reference's own error.
+
+Basis: just above SciPy's floor of ``100 * eps = 2.22e-14``, below which SciPy raises ``rtol``
+silently (the wrapper turns that into an error).
+"""
+
+CONV_SLOPE_BAND: tuple[float, float] = (3.8, 4.2)
+"""Every regular state's convergence slope must lie in this band (D-045)."""
+
+CONV_FLOOR_RATIO: float = 30.0
+"""Validity rule (D-045): RK4's error at the smallest ``dt`` must be at least this multiple of
+the reference's own error, or the test fails as inconclusive instead of passing."""
+
+AGREE_DT: float = 0.01
+"""RK4 step of the agreement gates, in units of ``sqrt(L1 / g)`` (D-046)."""
+
+CHAOTIC_STREAM: int = 2001
+"""Stream of the chaotic-ish states (D-046). Per attempt ``rng.uniform(-CHAOTIC_THETA_MAX,
+CHAOTIC_THETA_MAX, size=2)`` with ``omega = 0``, kept only if ``E > 0``, until
+``N_CHAOTIC_STATES`` are kept. "Chaotic-ish" is not a classification (milestone 6)."""
+
+N_CHAOTIC_STATES: int = 30
+"""Number of chaotic-ish states."""
+
+CHAOTIC_THETA_MAX: float = math.pi
+"""Chaotic-ish states have both angles uniform in ``[-pi, pi]``."""
+
+CHAOTIC_T: int = 8
+"""Horizon of the chaotic-ish agreement gate, with outputs at ``t = 0, 1, ..., 8`` (D-046).
+
+The proposal was 10; the predeclared 20-sample tail rule of D-046 moved it to 8.
+"""
+
+CHAOTIC_REFERENCE_TOL: float = 1e-12
+"""``rtol`` and ``atol`` of the reference in the chaotic-ish agreement gate (the brief's)."""
+
+CHAOTIC_TOL: float = 1e-4
+"""Worst case over states, output times and components of ``|RK4 - DOP853|`` (D-046)."""
+
+REGULAR_AGREE_T: int = 50
+"""Horizon of the regular agreement gate (D-046), with outputs at every integer time."""
+
+REGULAR_AGREE_TOL: float = 1e-6
+"""Worst case over the regular states, output times and components (D-046)."""
+
+WIRE_PARAM_STREAM: int = 2002
+"""Stream of the wiring check's parameter sets, drawn one after the other by the D-031 recipe."""
+
+WIRE_STATE_STREAM: int = 2003
+"""Stream of the wiring check's states, consumed set by set in order (D-047): per attempt
+``rng.uniform(-CHAOTIC_THETA_MAX, CHAOTIC_THETA_MAX, size=2)`` with ``omega = 0``, kept only if
+``E > 0`` under that set's parameters."""
+
+N_WIRE_SETS: int = 10
+"""Number of non-default parameter sets in the wiring check."""
+
+N_WIRE_STATES: int = 3
+"""Number of states per parameter set in the wiring check."""
+
+WIRE_DT: float = 0.005
+"""RK4 step of the wiring check, in units of ``t_s = sqrt(L1 / g)`` of each set (D-047)."""
+
+WIRE_T: float = 2.0
+"""Horizon of the wiring check in units of ``t_s``, with outputs at ``0, t_s, 2 t_s``."""
+
+WIRE_REFERENCE_TOL: float = 1e-12
+"""``rtol`` and ``atol`` of the reference in the wiring check."""
+
+WIRE_AGREE_TOL: float = 1e-5
+"""Worst-case distance between RK4 and the wrapper, on the nondimensional state
+``(theta1, theta2, omega1 * t_s, omega2 * t_s)`` (D-047)."""
+
+WIRE_ENERGY_TOL: float = 1e-5
+"""Worst case of ``|E(t) - E(0)| / E_s`` for the RK4 trajectory and for the wrapper's, with ``E``
+evaluated under the set's own parameters and ``E_s = g * ((m1 + m2) * L1 + m2 * L2)``, the
+largest possible ``|V|`` (D-047)."""
 
 
 # --- The comparison rule --------------------------------------------------------------------

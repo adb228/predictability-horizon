@@ -504,3 +504,82 @@ All times are in units of `√(L1/g)`; default parameters; `dt = 0.01`.
 - **Batching over parameters needs a `Params` of arrays.** A contract test, in the style of T11, runs `rk4_trajectory` under `jax.vmap` over a `Params` whose fields are arrays, so that the batched path is exercised.
 - **Compile cost.** Each distinct `(f, n_out, stride)` recompiles. That is fine now; the runtime is watched once the CI suite runs many grids.
 - **Calibration seeds stay out of the gates.** The lab used seeds 31415, 27182, 16180 and 99991 and the streams `[4242, k]` and `[4243, k]`; the gate streams are `[20261010, 2000]` to `[20261010, 2003]`.
+
+## Milestone 3: build and results (2026-10-12)
+
+### D-050 Milestone 3 built; every predeclared gate passed (2026-10-12)
+- **Built, in commit order**, on the branch `milestone-3-integrators` (local, not pushed): `276581b` the derivation note with its claim-to-test table; `4a59355` the declared values in `src/horizon/tolerances.py` with the tripwire test K1; `318c0cf` the tests and an interface skeleton (red: of the 73 tests in the three new test files, counting K1 from the previous commit, 24 passed because they do not need the implementation, and the other 49 were red: 48 with the stub's `NotImplementedError` (45 failures and the 3 setup errors of the wiring fixture) and one, S3, with the exact-type guard described below, which reports that same stub error as the wrong type; checked by running the tests at `318c0cf`); `406ac90` the implementation, with `scipy>=1.18.1` as a direct dependency (D-049); `fbe4455` the script. The agent wrote all of it after the walkthrough (D-039, D-041).
+- **The owner's rule of 2026-10-12 was followed.** The tolerances and horizons were locked as approved and were not changed after seeing results from the implementation. At `fbe4455`, `git diff 318c0cf HEAD -- tests src/horizon/tolerances.py` is empty: no test, threshold, grid, horizon or seed stream was touched after the implementation existed. All 73 tests passed on the first run against the implementation, and the full suite passes (482 tests; 43.3 s in the last local run). No decision was deferred to Opus 5.5 during the build, because no threshold, grid, horizon or interface item changed (D-025).
+- **Results.** The output of `uv run python -m experiments.stage1.integrator_validation`, run from a clean working tree at commit `fbe4455` (the script's own provenance header; the laptop; exit status 0). It is the script's printout, pasted unedited, and the numbers in a report must come from the milestone 7 entry point (D-048).
+
+```
+Provenance (D-019, D-048)
+  git commit   fbe445534befef6ca5de424277a2b5b48e6a9eb6   (clean)
+  python       3.12.11
+  jax          0.11.2
+  jaxlib       0.11.2
+  numpy        2.5.3
+  scipy        1.18.1
+
+A. Exact-solution problems (D-044): worst |RK4 - exact| over t = 0, 1, ..., T
+   grid dt = 0.04, 0.02, 0.01, 0.005
+   slope band [3.9, 4.1]; wrapper bound 1e-10
+   problem     T    err(0.04)    err(0.02)    err(0.01)   err(0.005)   slope  finest/ceiling    wrapper
+   harmonic   10    1.126e-05    7.036e-07    4.396e-08    2.747e-09   4.000           0.092   4.62e-12   ok/ok/ok
+   linear      5    4.614e-07    2.786e-08    1.711e-09    1.060e-10   4.029           0.053   8.99e-13   ok/ok/ok
+   logistic    5    2.999e-09    1.891e-10    1.187e-11    7.435e-13   3.993           0.099   1.05e-12   ok/ok/ok
+   rotation    5    4.412e-06    2.775e-07    1.739e-08    1.089e-09   3.995           0.099   5.07e-12   ok/ok/ok
+   verdicts: slope / ceiling / wrapper. A ratio of at most 1 is inside the bound.
+
+B. Pendulum convergence (D-045): regular states, default parameters, T = 10
+   reference rtol = atol = 1e-13; self-check reference 2.5e-14; slope band [3.8, 4.2]
+   validity: the error at dt = 0.005 must be at least 30 times the reference's own error
+   state   slope  err(finest)  self-error    ratio  verdict
+       0   3.982    1.444e-10   2.186e-13    660.4  ok/ok
+       1   3.957    2.773e-10   1.366e-13   2030.9  ok/ok
+       2   3.995    2.547e-10   4.473e-13    569.3  ok/ok
+       3   3.971    2.705e-10   3.919e-13    690.3  ok/ok
+       4   3.972    2.032e-10   2.980e-13    681.9  ok/ok
+       5   3.997    2.358e-10   1.237e-13   1907.1  ok/ok
+       6   3.889    2.954e-10   3.083e-13    958.2  ok/ok
+       7   3.884    2.946e-10   1.338e-13   2202.0  ok/ok
+       8   4.005    2.120e-10   1.275e-13   1663.0  ok/ok
+       9   4.001    2.278e-10   6.850e-14   3325.5  ok/ok
+      10   3.989    8.329e-11   4.458e-13    186.8  ok/ok
+      11   3.994    2.930e-11   2.282e-13    128.4  ok/ok
+   slopes 3.884 to 4.005; smallest error / self-error 128.4
+   verdicts: slope / validity.
+
+C. Agreement of RK4 and DOP853 (D-046): default parameters, dt = 0.01
+   chaotic-ish states  T = 8   worst |RK4 - DOP853| = 3.617e-06  bound 1e-04  ratio 0.036  ok
+   regular states      T = 50  worst |RK4 - DOP853| = 2.218e-08  bound 1e-06  ratio 0.022  ok
+
+   Error growth for the chaotic-ish ensemble (non-gating, D-046(c)):
+     t      median     maximum
+     0   0.000e+00   0.000e+00
+     1   1.390e-10   4.448e-10
+     2   1.595e-09   6.522e-08
+     3   2.505e-08   1.432e-07
+     4   3.336e-08   2.382e-07
+     5   4.407e-08   4.300e-07
+     6   5.779e-08   9.371e-07
+     7   8.379e-08   1.916e-06
+     8   1.189e-07   3.617e-06
+
+   Error growth for the regular states (non-gating), maximum over states:
+   t=0: 0.00e+00  t=10: 4.59e-09  t=20: 1.00e-08  t=30: 1.31e-08  t=40: 1.81e-08  t=50: 2.05e-08
+
+D. Non-default parameters (D-047): 10 sets x 3 states, dt = 0.005 t_s, T = 2 t_s
+   agreement |RK4 - wrapper|    worst over 30 cases = 3.202e-08  bound 1e-05  ratio 0.0032  ok
+   RK4 energy drift / E_s       worst over 30 cases = 6.839e-09  bound 1e-05  ratio 0.0007  ok
+   wrapper energy drift / E_s   worst over 30 cases = 2.203e-12  bound 1e-05  ratio 0.0000  ok
+
+All checks are within the declared thresholds.
+```
+
+- **Reading the output.** Every statistic is inside its predeclared bound. The exact-solution slopes are 4.000, 4.029, 3.993 and 3.995 (band 3.9 to 4.1); the finest-step errors are 5.3 to 9.9 percent of their ceilings; the wrapper is within 5.1e-12 of the exact solutions (bound 1e-10). The pendulum slopes run from 3.884 to 4.005 (band 3.8 to 4.2), so the tightest bound of the build is state 7's slope: 3.884 is 0.084 above the lower edge and uses 58 percent of the band's half-width, the largest fraction used by any check; state 6, at 3.889, is next with 56 percent, and every other check uses less than 30 percent of its bound (the largest of those is the linear problem's slope, 4.029, at 29 percent, which is 0.071 below the upper edge of its narrower band); the validity rule's smallest ratio is 128 against 30. The chaotic-ish worst case is 3.6e-6 against 1e-4 and the regular-state worst case 2.2e-8 against 1e-6. The wiring check gives 3.2e-8 for agreement, 6.8e-9 for RK4's energy drift and 2.2e-12 for the wrapper's, each against 1e-5. These are the sizes the uncommitted calibration of D-044 to D-047 predicted (the exact-problem errors at `dt = 0.005` are the same to the digits logged there; sections B, C and D use seeded states that the calibration did not).
+- **What passing shows, and what it does not.** It shows that RK4 converges at fourth order on four problems with closed forms, two of them nonlinear; that RK4 and the DOP853 wrapper agree to the declared tolerances over the declared horizons on the seeded states; and that both integrators are consistent with their own parameters on ten non-default sets, in agreement and in energy. It does not show agreement beyond those horizons (in chaotic motion no claim is made past `T = 8`, D-046), energy behaviour over `t = 1000` or time reversibility (milestone 4), the Lyapunov estimators (milestone 5), or anything about Linux: the branch has not been pushed, so CI has not run.
+- **Lab mutants, uncommitted and not results (no script is committed, as in D-038).** Six deliberate breakages of the implementation were run against the new tests, and each was caught by at least one test; the file was restored byte for byte after each. `k3` evaluated from `k1` (R1, R2, R5, G1 to G6, N3). The all-½ tableau of section 2.4 (R2, G1 to G6, N3, but not R1, which is blind to it, as the note says). `params` replaced by the all-ones parameters in RK4 only (G5, G6, N3). `params` dropped in the wrapper only (S1, S2, G5, G6, N3). One RK4 step too few per output row (R3, G1 to G5, N3). SciPy's clamp warning swallowed (S4 only).
+- **Details that D-042 left open, filled in by the implementer.** They only add checks or fix a type, and none changes a number for `float64` input. `rk4_step` is not compiled by itself, since D-042 asks for compilation of `rk4_trajectory` only; its docstring says to wrap it in `jax.jit` with `f` static. `n_out` and `stride` must be `int`: a `bool` or a float raises `TypeError`, a value below 1 raises `ValueError`. `t_eval` must also be one-dimensional and finite, besides D-042's rules. `rk4_step` and `rk4_trajectory` cast the state to `float64`. `solve_reference` does not validate the shape of `state0`. Any of these is a one-line change before the merge if the owner wants it different.
+- **Two observations.** `NotImplementedError` is a subclass of `RuntimeError`, so an unfinished stub passed the obvious test for D-042's `RuntimeError` on a failed solve; S3 therefore checks the exact exception type, and on the skeleton it failed for exactly that reason. And SciPy 1.18.1 reports the finite-time blow-up used in S3 through `status = -1` with no warning, so S3 rests on the status and not on a warning.
+- **Cost and limits carried forward.** The three new test files take about 16 s on the laptop (15.6 s in the last run, an uncommitted timing); the slowest test is G4 at `T = 50` with 4.05 s, then G3 with 2.49 s and G2 with 2.16 s, far from the 60 s limit (D-036). CI timings are not known yet. `rk4_trajectory` still recompiles for each distinct `(f, n_out, stride)`. The strict warning filter in `solve_reference` will report, and not hide, an unrelated warning if SciPy or JAX ever emits one during the solve. The pointwise-reference limitation and the D-032 conditioning caveat stand (D-046, D-049 and the risk list above).
