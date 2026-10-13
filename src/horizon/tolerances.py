@@ -1,9 +1,10 @@
 """Predeclared tolerances and the single comparison rule behind every numeric gate.
 
-Governed by D-025 and D-031 in ``docs/DECISIONS.md``, and for the integrator gates by D-044 to
-D-048. Every value below was recorded in that log before any test ran against the code it
-governs. **Changing any value here requires Opus 5.5's approval first, logged in the decision
-log (D-025).** The git history of this file is the audit trail.
+Governed by D-025 and D-031 in ``docs/DECISIONS.md``, for the integrator gates by D-044 to
+D-048, and for the physics validation gates by D-052 to D-060. Every value below was recorded in
+that log before any test ran against the code it governs. **Changing any value here requires
+Opus 5.5's approval first, logged in the decision log (D-025).** The git history of this file is
+the audit trail.
 
 The rule
 --------
@@ -273,6 +274,166 @@ WIRE_ENERGY_TOL: float = 1e-5
 """Worst case of ``|E(t) - E(0)| / E_s`` for the RK4 trajectory and for the wrapper's, with ``E``
 evaluated under the set's own parameters and ``E_s = g * ((m1 + m2) * L1 + m2 * L2)``, the
 largest possible ``|V|`` (D-047)."""
+
+
+# --- Milestone 4: physics validation (D-052 to D-060) ---------------------------------------
+#
+# Declared in the decision log before any milestone 4 test ran. They are not measurements: the
+# calibration behind them is uncommitted lab work described in the log. Times of the default
+# parameter gates are in units of ``sqrt(L1 / g)``, which is 1 for the default parameters. The
+# streams are ``np.random.default_rng([CASES_SEED, stream])`` and are disjoint from the earlier
+# ones. A change to any value needs Opus 5.5's approval first (D-025). A calibrated ceiling is
+# ten times the largest of 20 disjoint calibration sample maxima, rounded up to 1, 2 or 5 times
+# a power of ten (D-055); two values are not set that way: ``E_DOP_CEILING`` is the brief's
+# number and ``F_TOL`` belongs to deterministic cases.
+
+E_HORIZON: int = 1000
+"""Horizon of the energy-drift gates, with outputs at ``t = 0, 1, ..., E_HORIZON`` (D-054)."""
+
+E_DOP_CEILING: float = 1e-9
+"""E1: ceiling on ``max_t |E(t) - E(0)| / E_s`` for DOP853 at its defaults. The brief's number,
+not derived from data. ``E_s`` is a fixed scale of the parameters alone (D-053, D-054)."""
+
+E1_STREAM_REGULAR: int = 3000
+"""Stream of the regular gate states of E1: ``rng.uniform(-REGULAR_THETA_MAX, REGULAR_THETA_MAX,
+size=(E1_N_REGULAR, 2))`` with ``omega = 0`` (D-054)."""
+
+E1_N_REGULAR: int = 2
+"""Number of regular states in E1."""
+
+E1_STREAM_CHAOTIC: int = 3001
+"""Stream of the chaotic-ish gate states of E1, drawn by the recipe of D-046(a) (D-054)."""
+
+E1_N_CHAOTIC: int = 5
+"""Number of chaotic-ish states in E1."""
+
+E_TIMEOUT_S: int = 300
+"""The ``@pytest.mark.timeout`` of every E1 test, including its controls (D-036, D-054)."""
+
+E_GROWTH_TIMES: tuple[int, int, int] = (100, 300, 1000)
+"""Times at which the script prints the running maximum of the drift, the growth law (D-054)."""
+
+E_LITERAL_FLOOR: float = 0.1
+"""Report only, never gating: the literal ``|dE| / |E(0)|`` is shown for states with
+``|E(0)| >= E_LITERAL_FLOOR * E_s``. ``E`` is ``double_pendulum.energy`` (the milestone 2 zero
+of the potential) and ``E_s`` comes from ``energy_scale`` (D-053)."""
+
+E_CONTROL_RTOL: float = 1e-10
+"""``rtol`` and ``atol`` of the reference-tolerance control of E1 (D-054, D-058)."""
+
+E_CONTROL_N_STATES: int = 2
+"""The control runs on the first ``E_CONTROL_N_STATES`` chaotic-ish gate states of E1."""
+
+E_CONTROL_DAMPING: float = 1e-6
+"""Coefficient ``gamma`` of the damping term ``-gamma * omega`` of the controls of E1 and V1
+(D-058)."""
+
+E_CONTROL_RK4_DT: float = 0.05
+"""Step of RK4 in the control of E2 (D-058)."""
+
+E2_STREAM_REGULAR: int = 3002
+"""Stream of the regular states of E2, drawn like those of E1 (D-055)."""
+
+E2_N_REGULAR: int = 12
+"""Number of regular states in E2."""
+
+E2_STREAM_CHAOTIC: int = 3003
+"""Stream of the chaotic-ish states of E2 (D-055)."""
+
+E2_N_CHAOTIC: int = 30
+"""Number of chaotic-ish states in E2."""
+
+E2_CEILING_REGULAR: float = 1e-7
+"""E2: ceiling on the RK4 drift (``AGREE_DT``, ``T = E_HORIZON``) over the regular states.
+Calibrated, D-055: the largest of 20 sample maxima was 5.44e-9."""
+
+E2_CEILING_CHAOTIC: float = 5e-4
+"""E2: ceiling on the RK4 drift over the chaotic-ish states. Calibrated, D-055: the largest of
+20 sample maxima was 2.62e-5."""
+
+MOVING_STREAM: int = 3006
+"""Stream of the moving states, which the script measures and reports and no test gates: angles
+uniform in ``[-CHAOTIC_THETA_MAX, CHAOTIC_THETA_MAX]`` (one draw of shape ``(N_MOVING, 2)``), then
+velocities uniform in ``[-MOVING_OMEGA_MAX, MOVING_OMEGA_MAX]`` (a second draw) (D-054)."""
+
+N_MOVING: int = 8
+"""Number of moving states."""
+
+MOVING_OMEGA_MAX: float = 2.0
+"""Bound of the velocities of the moving states."""
+
+F_AMPLITUDE: float = 1e-3
+"""Amplitude ``A`` of the small-angle FFT. The physical amplitude-dependent frequency shift
+scales as ``A**2`` and sets the floor under the agreement, so ``A`` is declared and not adjusted
+(D-056)."""
+
+F_SAMPLE_DT: float = 0.05
+"""Sampling interval of the FFT record, in units of ``t_s = sqrt(L1 / g)`` of the parameter set
+(D-056)."""
+
+F_N_SAMPLES: int = 20000
+"""Samples in the FFT record, ``t = k * F_SAMPLE_DT * t_s`` for ``k = 0, ..., F_N_SAMPLES - 1``,
+so ``T_total = 1000 t_s`` (D-056)."""
+
+F_RK4_STRIDE: int = 5
+"""RK4 steps between two samples; the step is ``AGREE_DT * t_s``, so
+``F_RK4_STRIDE * AGREE_DT = F_SAMPLE_DT`` (D-056)."""
+
+F_PAD: int = 8
+"""The spectrum is zero-padded to the power of two that is at least ``F_PAD * F_N_SAMPLES``
+(D-056)."""
+
+F_PEAK_SEPARATION_BINS: int = 40
+"""Two peaks of the spectrum must be more than this many padded bins apart (D-056)."""
+
+F_TOL: float = 1e-5
+"""Largest allowed relative error of a peak frequency against ``sqrt((g/L) (2 -+ sqrt 2))``,
+for both integrators and both parameter sets (D-056). Fixed by deterministic cases, not
+calibrated."""
+
+F2_PARAMS: tuple[float, float, float, float, float] = (1.3, 1.3, 0.7, 0.7, 9.81)
+"""The second small-angle set, ``(m1, m2, L1, L2, g)``, equal masses and lengths with ``g/L``
+different from 1 (D-056)."""
+
+F_CONTROL_M2_FACTOR: float = 1.01
+"""``m2`` is multiplied by this in the control of F, against the default analytic frequencies
+(D-058)."""
+
+V_REGULAR_T: int = 100
+"""Horizon of the round trip of the regular states (D-057)."""
+
+V_CHAOTIC_T: int = 8
+"""Horizon of the round trip of the chaotic-ish states, the horizon of milestone 3's agreement
+gate (D-057)."""
+
+V_STREAM_REGULAR: int = 3004
+"""Stream of the regular states of V1 and V2 (D-057)."""
+
+V_N_REGULAR: int = 12
+"""Number of regular states in V1 and V2."""
+
+V_STREAM_CHAOTIC: int = 3005
+"""Stream of the chaotic-ish states of V1 and V2 (D-057)."""
+
+V_N_CHAOTIC: int = 30
+"""Number of chaotic-ish states in V1 and V2."""
+
+V1_CEILING_REGULAR: float = 5e-9
+"""V1: ceiling on the DOP853 round-trip error over the regular states. Calibrated, D-057: the
+largest of 20 sample maxima was 4.09e-10."""
+
+V1_CEILING_CHAOTIC: float = 5e-8
+"""V1: ceiling over the chaotic-ish states. Calibrated, D-057: the largest of 20 sample maxima
+was 4.24e-9."""
+
+V2_CEILING_REGULAR: float = 1e-6
+"""V2: ceiling on the RK4 (``AGREE_DT``) round-trip error over the regular states. Calibrated,
+D-057: the largest of 20 sample maxima was 9.42e-8."""
+
+V2_CEILING_CHAOTIC: float = 2e-3
+"""V2: ceiling over the chaotic-ish states. Calibrated, D-057: the largest of 20 sample maxima
+was 1.39e-4. A backstop for gross errors only: second-order schemes are not seen at this
+ceiling (D-058)."""
 
 
 # --- The comparison rule --------------------------------------------------------------------
