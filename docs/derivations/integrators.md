@@ -140,7 +140,7 @@ Tests are in `tests/test_integrators.py` (R, S), `tests/test_integrator_gates.py
 | Shapes and dtype are as documented, and `jit` and `vmap` over states, over a batch of `Params` and over `dt` agree with the per-case result | 1 | R4 | `IDENTITY` |
 | `n_out` and `stride` must be integers of at least 1, and a negative `dt` is accepted and follows `R` | 1, 2.2 | R5 | exact; `IDENTITY` for the formula |
 | `solve_reference` has the documented signature, defaults, shape and dtype, and its first row is the initial state | 1 | S1 | `IDENTITY` |
-| `t_eval` is validated, and a first time above zero works | 1 | S2 | exact, wrapper distance of D-044 |
+| `t_eval` is validated, a first time above zero works, and `t_eval = [0.0]` returns the initial state | 1 | S2 | exact, wrapper distance of D-044 |
 | A failed solve raises `RuntimeError` | 1 | S3 | exact |
 | A request below SciPy's `rtol` floor raises instead of being clamped, and the self-check tolerance `2.5e-14` is accepted | 4 | S4 | exact |
 | Each closed-form solution satisfies its equation and initial condition | 3 | X1 to X4 | `IDENTITY` |
