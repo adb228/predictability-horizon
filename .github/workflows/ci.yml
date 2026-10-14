@@ -36,4 +36,4 @@ jobs:
       - name: Format check
         run: uv run --locked ruff format --check .
       - name: Tests
-        run: uv run --locked pytest
+        run: uv run --locked pytest --durations=15
