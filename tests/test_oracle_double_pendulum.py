@@ -1,14 +1,14 @@
 """Self-checks of the independent oracle (O1 to O7, D-029, D-035).
 
-These run green before the owner writes any code. They check the *oracle*, not the code under
-test. Which of them are independent anchors, and which are not:
+These checks do not call the mechanics implementation. They check the *oracle*, not the code
+under test. Which of them are independent anchors, and which are not:
 
 * O1 (energies equal the brief's), O3 (the derivation note equals the oracle) and O4 (normal
   modes are exactly 2 +/- sqrt(2)) are independent anchors.
 * O2 substitutes the oracle's own solution back into its own equations, so it is close to
   circular and only checks the solve step.
 * O5, O6 and O7 guard the test machinery (the cases, the float-to-high-precision conversion,
-  and the absence of symbolic computation when the owner's code is tested).
+  and the absence of symbolic computation when the implementation is tested).
 """
 
 import ast
@@ -32,7 +32,7 @@ from tests.oracles import double_pendulum as oracle
 MODERATE = cases.moderate_cases()
 LARGE_ANGLE = cases.large_angle_cases()
 
-# The only oracle functions the tests of the owner's code may call (O7).
+# The only oracle functions the tests of the implementation may call (O7).
 NUMERIC_API = frozenset(
     {
         "mass_matrix",
@@ -93,8 +93,8 @@ def test_o2_also_holds_at_the_large_angle_states() -> None:
 def test_o3_the_derivation_note_equals_the_oracle_symbolically() -> None:
     """M, b, det M and the closed form for alpha in the note equal the oracle's.
 
-    Independent anchor: it verifies the document itself, so the owner implements a verified
-    equation.
+    Independent anchor: it verifies the document itself, so the implementation is written from a
+    verified equation.
     """
     m = oracle.model()
     assert sp.simplify(m.M_oracle - m.M_doc) == sp.zeros(2, 2)
@@ -156,7 +156,7 @@ def test_o5_cases_are_non_default_distinct_reproducible_and_swap_sensitive() -> 
         assert fresh.params == cached.params
         np.testing.assert_array_equal(fresh.states, cached.states)
 
-    # Swap sensitivity: a swap is detectable when the very rule that gates the owner's code (the
+    # Swap sensitivity: a swap is detectable when the very rule that gates the implementation (the
     # IMPL tolerance) rejects the swapped acceleration. Looks at the first three states of each set.
     names = ("m1", "m2", "L1", "L2", "g")
     for case in MODERATE:
@@ -221,12 +221,12 @@ def _sympy_calls(run: Callable[[], object]) -> list[str]:
 
 
 def test_o7_the_oracle_numeric_functions_call_no_sympy() -> None:
-    """Evaluating the oracle at a state runs no SymPy code, so the owner's tests run none.
+    """Evaluating the oracle at a state runs no SymPy code, so the implementation's tests run none.
 
-    T4 evaluates the owner's float64 acceleration in the oracle's cached, lambdified residual;
-    it never simplifies, expands or solves anything (D-035). This is the check: after the
-    symbolic model is built (outside the traced region), the seven numeric functions that the
-    tests of the owner's code may call must make no call into the ``sympy`` package.
+    T4 evaluates the implementation's float64 acceleration in the oracle's cached, lambdified
+    residual; it never simplifies, expands or solves anything (D-035). This is the check: after
+    the symbolic model is built (outside the traced region), the seven numeric functions that the
+    tests of the implementation may call must make no call into the ``sympy`` package.
     """
     oracle.model()  # the one-time symbolic derivation; the tracer is installed afterwards
     state, params = MODERATE[0].states[0], MODERATE[0].params
@@ -257,7 +257,7 @@ def test_o7_the_call_tracer_detects_a_real_sympy_call() -> None:
 def test_o7_the_implementation_tests_reach_the_oracle_only_through_its_numeric_functions() -> None:
     """``tests/test_double_pendulum.py`` imports no SymPy and calls only ``NUMERIC_API``.
 
-    Together with the call trace above, this means that no test of the owner's code can run
+    Together with the call trace above, this means that no test of the implementation can run
     symbolic computation, whichever oracle function it uses. Using another oracle function
     (``model``, for example) fails here until it is added to ``NUMERIC_API`` and traced.
     """
