@@ -27,7 +27,7 @@ uv run --locked ruff format --check .
 uv run --locked pytest
 ```
 
-The suite has 539 tests. It takes about 3 minutes on a laptop, and between 5 and 10 minutes on the CI runner (GitHub Actions, Ubuntu 24.04, one pinned Python version).
+The suite has 539 tests. It takes about 3 minutes on a laptop, and between 3 and 10 minutes on the CI runner, depending on the runner's speed (GitHub Actions, Ubuntu 24.04, one pinned Python version).
 
 The two scripts below print the measured numbers of the validation tests next to their predeclared thresholds, with a provenance header, and write no files:
 
