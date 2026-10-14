@@ -875,3 +875,63 @@ All checks are within the declared thresholds.
 - **CI on `main` for the merge commit** (run 38638730852): lint, format and **539 tests passed in 314.8 s (5 min 14 s)**, job 5 min 35 s. The PR run on the same code took 596.8 s (9 min 56 s), so the runner's speed varied by a factor of 1.9 between two runs; the V1 test on regular states took 19.3 s here and 38.8 s there. That variance is what the declared 120 s timeout protects against, and it is the reason to read CI durations as a range: the suite took 5 to 10 minutes on the runner, against the 20-minute limit.
 - **The gate numbers are reproduced by the final code.** The script was run again from a clean tree at the merge commit `9ced774` (exit status 0). Its printout equals the one pasted in D-062 line for line (129 lines), except for the commit line and the per-section timings: no number differs.
 - **The milestone 4 gate (D-012, D-060) has passed:** the committed script's printout from a clean tree (D-062, reproduced above); Linux CI green on the final head and on `main`; the results entries (D-062 to D-064); every value unchanged since its declaration except the one timeout declared in D-063. The pre-public docs cleanup and the history scan (D-060) come next and are proposed to the owner; the owner, and not the agent, changes the repository's visibility.
+
+## Pre-public cleanup (2026-10-14)
+
+### D-065 The pre-public docs cleanup, at the owner's instruction (2026-10-14)
+- **Scope the owner chose** (from the proposal that closed milestone 4): the "owner's code" wording; the PR #1 text; the README; a factual refresh of `PROGRESS.md` together with the push of the local commit `464a4d3`; the Python version in the brief; and the history and content scan of D-060. They are done on the branch `pre-public-cleanup` with a draft pull request, to be merged only when the owner says so. Everything is documentation or comments: no value, test logic or threshold changes (D-025). **The agent does not change the repository's visibility; the owner does.**
+- **Wording (D-039):** 17 places in 4 files now say "the implementation" or "the code under test", and describe the tests as they are (a docstring said that they "stay red until the owner implements" the mechanics): 3 in `docs/derivations/double_pendulum.md`, 4 in `tests/test_double_pendulum.py`, 9 in `tests/test_oracle_double_pendulum.py`, and the header comment of the milestone 2 section of `src/horizon/tolerances.py`. **The syntax trees of the three Python files are identical before and after, with docstrings stripped** (both versions were parsed and compared), so no test logic and no tolerance value changed, and the 402 tests of those files pass. The decision log keeps its historical wording. The accurate statements that the owner derived and verified the equations, and asked for the freeze of the thresholds, were left alone.
+- **README:** the status said "milestone 1 of 7". It now says that milestones 1 to 4 are done and what each delivered, that no scientific result exists yet, how to reproduce the environment and run the tests and the two validation scripts (with the measured durations: about 3 minutes for the suite on a laptop and 5 to 10 minutes on the CI runner; about 4 minutes for the physics script), how the repository is made, the layout and the documents. The statement of how it is made says that the owner derives and checks the mathematics, that an AI coding assistant implements it and the owner reviews it, that decisions are logged and some reviewed by a second model, and that reported results come from committed scripts while the numbers behind the thresholds come from calibration runs that are not committed and are labelled as such.
+- **The brief, section 4:** "Python 3.11+" became "Python 3.12+ (D-027)". It is the only change to `docs/BRIEF.md`; D-027's remark that the brief was not edited was true when it was written.
+- **The PR #1 text:** the sentence "The wording \"the owner's code\" in test docstrings and the derivation note is stale after D-039 and is queued in `PROGRESS.md` for the pre-public docs cleanup" was removed from the description of pull request #1 (a change to the owner's GitHub account, which the owner approved). The rest of the text is unchanged, which was verified by comparing it with the original. The descriptions of pull requests #2 and #3 needed no change.
+- **The history and content scan (D-060)**, run with `git` and `rg` only on the branch before this entry was written; its output follows unedited, **except that the one address in it, the owner's university address, is redacted** (it appears on two lines). Reading it: all but two commits use the noreply identity, including the merge commit `9ced774` made in milestone 4; the two exceptions are the GitHub-created merge commits of pull requests #1 and #2, whose author field holds the university address (section 1), and the address also remains in two diffs of the history, where D-021's text was added in the first commit and removed in `f5f2033` (section 3). The tree contains no copy of it any more (section 2). No commit message contains it, and there is no secret, phone number, local path, sensitive file name or large blob anywhere in the history, deleted files included.
+
+```
+scan of 5270bcc22cf70894c73f456d14fd76a3ee58cdd5   (0 uncommitted changes)
+refs scanned: refs/heads/main refs/heads/pre-public-cleanup refs/remotes/origin/main 
+commits reachable from all refs: 54
+
+1. Commit identities (author | committer), all refs:
+   2    ---___--- <<university address, redacted>> | GitHub <noreply@github.com>
+  52    adb228 <172058618+adb228@users.noreply.github.com> | adb228 <172058618+adb228@users.noreply.github.com>
+
+2. E-mail addresses in tracked files at HEAD (uv.lock excluded: upstream package metadata):
+      1 172058618+adb228@users.noreply.github.com
+      2 cursoragent@cursor.com
+
+3. E-mail addresses in the diffs of all history (decorators such as @pytest filtered out):
+      2 172058618+adb228@users.noreply.github.com
+      2 <university address, redacted>
+     21 cursoragent@cursor.com
+
+4. E-mail addresses in commit messages, all refs:
+     48 cursoragent@cursor.com
+
+5. Token, key and password-like strings in the diffs of all history:
+   matching lines: 0
+
+6. Phone-number-like strings in the diffs of all history:
+   matching lines: 0
+
+7. Local home paths in the diffs of all history (/Users/..., /home/...):
+   matching lines: 0
+
+8. File names that look sensitive, in the tree and anywhere in history (deleted files included):
+   none
+   files ever present in history: 38; tracked now: 38
+
+9. Blobs larger than 1 MB anywhere in history:
+   none
+
+10. The word 'UCLA' (case-insensitive): tracked files at HEAD, by file and line count only:
+   docs/BRIEF.md:1
+    and in commit messages of all refs: 0 lines
+
+11. The three pull request descriptions and their comments: e-mail addresses and 'UCLA':
+   PR #1: e-mail addresses: 0; 'UCLA': 0
+   PR #2: e-mail addresses: 0; 'UCLA': 0
+   PR #3: e-mail addresses: 0; 'UCLA': 0
+```
+
+- **Left as they are, on purpose:** the history (the owner chose not to rewrite it, D-060); the three docstring nits in `double_pendulum.py` and the follow-ups of D-051 and D-064, which are code or test changes outside this pass; the `Co-authored-by` trailer (45 of the 51 commits on `main` before this branch carry it); and `docs/BRIEF.md` section 1 (personal background), which the owner decides on.
+- **For the owner, before changing the visibility:** whether to keep the personal background of `docs/BRIEF.md` section 1, the `Co-authored-by` trailer, and the two merge commits whose author field holds the university address (keeping the history as it is means that they stay visible); then the visibility itself.
