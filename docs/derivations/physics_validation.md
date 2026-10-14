@@ -107,7 +107,7 @@ All values were logged in D-052 to D-060 before any milestone 4 test ran, and li
 | E2 control | RK4 at `dt = 0.05` | D-058 |
 | F | `A = 1e-3`, `h = 0.05 t_s`, 20000 samples, RK4 `dt = 0.01 t_s` with stride 5, Hann, padding at least 8, peak separation 40 padded bins, relative error `≤ 1e-5`; sets F1 (default) and F2 (`1.3, 1.3, 0.7, 0.7, 9.81`) | D-056 |
 | F controls | `m2` scaled by `1.01`; the pair `2 ± 1` | D-058 |
-| V1, V2 | forward `T`, flip, forward `T`, flip back; regular `T = 100` (stream 3004, 12 states), chaotic-ish `T = 8` (stream 3005, 30 states); DOP853 ceilings `5e-9` and `5e-8`, RK4 ceilings `1e-6` and `2e-3` | D-057 |
+| V1, V2 | forward `T`, flip, forward `T`, flip back; regular `T = 100` (stream 3004, 12 states), chaotic-ish `T = 8` (stream 3005, 30 states); DOP853 ceilings `5e-9` and `5e-8`, RK4 ceilings `1e-6` and `2e-3`; the V1 test on regular states has `@pytest.mark.timeout(120)` | D-057, D-063 |
 | V controls | damped field (V1); wrong schemes W1, W2, W3 of milestone 3 on regular states and W3 on chaotic-ish states (V2) | D-058 |
 
 The rule for every calibrated ceiling (D-055): 10 times the largest of 20 disjoint calibration sample maxima, rounded up to 1, 2 or 5 times a power of ten. Two values are not set by it: the E1 ceiling `1e-9`, which the brief fixes, and the F tolerance `1e-5`, whose cases are deterministic.
@@ -135,5 +135,5 @@ Tests are in `tests/test_physics_validation.py` (E, F, V, N) and `tests/test_phy
 
 - **E1 and E2** are blind to energy-conserving errors, and E1 is blind to moving states (reported, not gated). E2 on chaotic-ish states cannot tell a method of order 4 from one of order 3 at `dt = 0.01`; G1 and G2 do that.
 - **F** is blind to swapped equal parameters, to errors below `1e-5`, and to defects that change no frequency.
-- **V** is blind to time-reversal-symmetric errors. On chaotic-ish states V2 is a backstop for gross errors: it cannot see a second-order scheme such as W1 or W2 at `dt = 0.01`, which G1 and G2 catch.
+- **V** is blind to time-reversal-symmetric errors. On chaotic-ish states V2 is a backstop for gross errors: second-order schemes such as W1 and W2 sit near its ceiling at `dt = 0.01` (their round-trip error is between 0.4 and 2.7 times the ceiling, depending on the sample: below it on some samples and above it on the gate ensemble), so V2 may or may not see them; G1 and G2 are what catch them (D-063).
 - **Not covered here:** the Lyapunov estimators (milestone 5), energy regimes and finite-time exponents (milestone 6), and the report (milestone 7).
