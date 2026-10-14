@@ -6,11 +6,17 @@ This project measures learned models of the double pendulum in units of **Lyapun
 
 ## Status
 
-Stage 1 (physics ground truth, no ML), milestone 1 of 7: repository baseline.
+Stage 1 (physics ground truth, no ML): milestones 1 to 4 of 7 are done.
 
-**No scientific results exist yet.** This section will gain the hero figure and the finding when Stage 1 is tagged `stage1-v1.0`.
+- A double-pendulum simulator whose equations are derived from the Lagrangian and checked against an independent SymPy and mpmath oracle ([derivation](docs/derivations/double_pendulum.md)).
+- A fixed-step RK4 in JAX and a SciPy DOP853 reference, with fourth-order convergence checked against four exact solutions and against the pendulum, and a predeclared agreement gate ([derivation](docs/derivations/integrators.md)).
+- A physics validation suite: energy drift over `t = 1000`, the small-angle FFT against the normal-mode frequencies, and time reversibility ([derivation](docs/derivations/physics_validation.md)).
 
-## Reproduce the environment
+Next: two independent Lyapunov-exponent estimators (milestone 5), energy regimes and finite-time exponents (milestone 6), and the figures and the report (milestone 7).
+
+**No scientific results exist yet.** What has been measured so far validates the numerical tools; it is not a finding about predictability. This section will gain the hero figure and the finding when Stage 1 is tagged `stage1-v1.0`.
+
+## Reproduce
 
 Requires [uv](https://docs.astral.sh/uv/) 0.8.22 or newer and Python 3.12 or newer (`.python-version` pins 3.12; uv fetches it if needed).
 
@@ -21,12 +27,34 @@ uv run --locked ruff format --check .
 uv run --locked pytest
 ```
 
+The suite has 539 tests. It takes about 3 minutes on a laptop, and between 5 and 10 minutes on the CI runner (GitHub Actions, Ubuntu 24.04, one pinned Python version).
+
+The two scripts below print the measured numbers of the validation tests next to their predeclared thresholds, with a provenance header, and write no files:
+
+```bash
+uv run --locked python -m experiments.stage1.integrator_validation   # convergence and agreement
+uv run --locked python -m experiments.stage1.physics_validation      # all five validation tests, about 4 minutes
+```
+
 `--locked` makes uv fail, instead of silently re-resolving dependencies, if `uv.lock` is out of date. There is a single locked stack, so every committed result comes from the same library versions. See D-027 in [`docs/DECISIONS.md`](docs/DECISIONS.md).
+
+## How the repository is made
+
+The equations and the numerical mathematics are derived and checked by the repository owner. The code is implemented by an AI coding assistant from those derivations, and the owner reviews it. Each design decision is logged with its alternatives in [`docs/DECISIONS.md`](docs/DECISIONS.md), and some were reviewed by a second model before any code was written. Every threshold is declared in [`src/horizon/tolerances.py`](src/horizon/tolerances.py) before the code it governs is tested, and a gate that fails is reported and not adjusted. Reported results come from committed scripts; the numbers behind the thresholds come from calibration runs that are not committed and are labelled as such in the log.
+
+## Layout
+
+- [`src/horizon/`](src/horizon): the package: the double-pendulum mechanics (`systems/double_pendulum.py`), the integrators (`integrators.py`) and the declared tolerances (`tolerances.py`).
+- [`tests/`](tests): the tests, the independent oracle (`tests/oracles/`) and the measurement code shared by the tests and the scripts.
+- [`experiments/stage1/`](experiments/stage1): the scripts that print the validation numbers.
+- [`docs/`](docs): the brief, the decision log, the derivation notes and the plan.
 
 ## Documents
 
 - [`docs/BRIEF.md`](docs/BRIEF.md): research brief and working rules
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): decision log (choice, alternatives, why)
+- [`docs/derivations/`](docs/derivations): the derivation notes, each with a table that maps every claim to the test that checks it
+- [`docs/plans/stage1.md`](docs/plans/stage1.md): the Stage 1 plan and its milestones
 - [`PROGRESS.md`](PROGRESS.md): what is done, what is next, open questions
 
 ## License

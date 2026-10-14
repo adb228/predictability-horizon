@@ -174,7 +174,7 @@ Each stage must be **a complete, finished result on its own**: a clean figure, a
 
 ## 4. Tech stack (confirm with me during calibration)
 
-- **Python 3.11+**, environment managed with **`uv`**.
+- **Python 3.12+** (D-027), environment managed with **`uv`**.
 - **Framework, my default preference: JAX** (`jax`, `equinox` for models, `optax` for optimizers, optionally `diffrax` for ODE solving). Why JAX: `jax.jacfwd` gives exact Jacobians for the variational Lyapunov method, and `vmap` batches thousands of initial conditions cheaply. If you think PyTorch (+ `torchdiffeq`) is better for this project, make the case briefly.
 - `scipy` for the reference integrator, `sympy` to derive and cross-check equations of motion.
 - `pytest` + `hypothesis` for tests, `ruff` for lint and format.
