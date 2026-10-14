@@ -156,8 +156,9 @@ def test_f_fft_peaks_match_the_analytic_normal_mode_frequencies(
     with both integrators and both parameter sets; every peak within ``1e-5`` relative. The
     analytic values are written in ``physics_checks`` from the brief, not from the code under
     test. Catches a wrong frequency, a wrong ``g/L`` or time scaling (F2), and an estimator that
-    mislocates the peak. Blind to swapped equal parameters (all of F1 is equal), to errors below
-    the tolerance, and to a defect that changes no frequency.
+    mislocates the peak. Blind to swapped equal parameters (F1 has all five equal, F2 equal
+    masses and equal lengths), to errors below the tolerance, and to a defect that changes no
+    frequency.
     """
     params = ph.F_SETS[set_name]
     measured = ph.fft_peaks(params, mode, integrator)
@@ -201,6 +202,7 @@ def _worst_dop853_round_trip(
     return max(ph.dop853_round_trip_error(s, horizon, field=field) for s in states)
 
 
+@pytest.mark.timeout(tol.V1_REGULAR_TIMEOUT_S)
 def test_v1_dop853_round_trip_returns_to_the_initial_state_on_regular_states() -> None:
     """V1 (class ceiling): forward 100, flip, forward 100, flip back, error at most ``5e-9``.
 
@@ -245,8 +247,9 @@ def test_v2_rk4_round_trip_returns_to_the_initial_state_on_regular_states() -> N
 def test_v2_rk4_round_trip_returns_to_the_initial_state_on_chaotic_ish_states() -> None:
     """V2 (class ceiling): the round trip with RK4 on the chaotic-ish states at ``T = 8``, ``2e-3``.
 
-    A backstop for gross errors only: this ceiling cannot see a second-order scheme at
-    ``dt = 0.01`` (D-058), which G1 and G2 catch.
+    A backstop for gross errors: second-order schemes sit near this ceiling at ``dt = 0.01``
+    (between 0.4 and 2.7 times it, depending on the sample, D-063), so it may or may not see
+    them; G1 and G2 are what catch them.
     """
     chk.check_at_most(
         float(np.max(ph.rk4_round_trip_errors(ph.v_chaotic_states(), tol.V_CHAOTIC_T))),
@@ -313,9 +316,10 @@ def test_v2_control_wrong_schemes_fail_the_regular_ceiling(scheme: str) -> None:
 def test_v2_control_the_first_order_scheme_fails_the_chaotic_ish_ceiling() -> None:
     """V2 control (class ceiling): W3 (first order) fails the chaotic-ish round trip.
 
-    Only W3: W1 and W2 are second order and stay below this ceiling at ``dt = 0.01`` (D-058), so
-    the note records this ensemble as a backstop for gross errors. Catches a V2 that cannot fail
-    on the chaotic-ish states. Blind to W1 and W2 by design.
+    Only W3: W1 and W2 are second order and sit near this ceiling at ``dt = 0.01`` (below it on
+    some samples, above it on the gate ensemble, D-063), so they are controls of the regular
+    ensemble and not of this one. Catches a V2 that cannot fail on the chaotic-ish states. Blind
+    to W1 and W2, which it may or may not see.
     """
     step, _ = m3.WRONG_SCHEMES["W3-k4-half-step"]
     trajectory = m3._trajectory_from_step(step)

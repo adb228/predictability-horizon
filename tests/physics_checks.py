@@ -223,8 +223,18 @@ def analytic_frequencies(g: float, length: float) -> tuple[float, float]:
     return math.sqrt(ratio * (2.0 - math.sqrt(2.0))), math.sqrt(ratio * (2.0 + math.sqrt(2.0)))
 
 
+PEAK_COUNT = {"mode 1": 1, "mode 2": 1, "generic": 2}
+"""How many peaks the spectrum of each initial state has: one per mode that it excites."""
+
+
 def expected_peaks(mode: str, params: dp.Params) -> list[float]:
-    """The analytic frequencies the peaks of ``mode`` must match, in increasing order."""
+    """The analytic frequencies the peaks of ``mode`` must match, in increasing order.
+
+    The brief's formula holds for equal masses and equal lengths only, so any other set is
+    refused instead of being compared with a formula that does not apply to it (D-063).
+    """
+    if params.m1 != params.m2 or params.L1 != params.L2:
+        raise ValueError("the formula (g/L)(2 -+ sqrt 2) needs m1 = m2 and L1 = L2")
     low, high = analytic_frequencies(params.g, params.L1)
     return {"mode 1": [low], "mode 2": [high], "generic": [low, high]}[mode]
 
@@ -289,7 +299,7 @@ def fft_peaks(
         )
     else:
         raise ValueError(f"unknown integrator {integrator!r}")
-    return spectrum_peaks(rows[:, 0], h, len(expected_peaks(mode, params)))
+    return spectrum_peaks(rows[:, 0], h, PEAK_COUNT[mode])
 
 
 def relative_errors(measured: list[float], expected: list[float]) -> list[float]:

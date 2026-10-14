@@ -59,6 +59,7 @@ def test_register_holds_the_declared_physics_values() -> None:
     assert (tol.V_STREAM_CHAOTIC, tol.V_N_CHAOTIC) == (3005, 30)
     assert (tol.V1_CEILING_REGULAR, tol.V1_CEILING_CHAOTIC) == (5e-9, 5e-8)
     assert (tol.V2_CEILING_REGULAR, tol.V2_CEILING_CHAOTIC) == (1e-6, 2e-3)
+    assert tol.V1_REGULAR_TIMEOUT_S == 120
 
     # D-058: the controls.
     assert (tol.E_CONTROL_RTOL, tol.E_CONTROL_N_STATES) == (1e-10, 2)
@@ -245,6 +246,25 @@ def test_k2_the_peak_finder_recovers_known_frequencies() -> None:
     one = np.sin(w1 * t)
     first, second = ph.spectrum_peaks(one, h, 2)
     assert second - first > tol.F_PEAK_SEPARATION_BINS * bin_width
+
+
+def test_k2_expected_peaks_refuse_sets_the_formula_does_not_cover() -> None:
+    """K2 (class exact): the brief's formula is offered only for equal masses and equal lengths.
+
+    ``expected_peaks`` raises ``ValueError`` when ``m1 != m2`` or ``L1 != L2``, and gives the
+    formula for both parameter sets of the F gate. Catches a comparison made against a formula
+    that does not apply to the set (D-063). Blind to a set with equal masses and lengths for
+    which the caller uses the wrong ``g``.
+    """
+    with pytest.raises(ValueError):
+        ph.expected_peaks("mode 1", dp.Params(1.0, 1.01, 1.0, 1.0, 1.0))
+    with pytest.raises(ValueError):
+        ph.expected_peaks("mode 1", dp.Params(1.0, 1.0, 1.0, 1.2, 1.0))
+    for params in ph.F_SETS.values():
+        low, high = ph.analytic_frequencies(params.g, params.L1)
+        assert ph.expected_peaks("generic", params) == [low, high]
+        assert ph.expected_peaks("mode 1", params) == [low]
+        assert ph.expected_peaks("mode 2", params) == [high]
 
 
 def test_k2_the_analytic_frequencies_are_the_briefs_formula() -> None:

@@ -432,8 +432,13 @@ D-057: the largest of 20 sample maxima was 9.42e-8."""
 
 V2_CEILING_CHAOTIC: float = 2e-3
 """V2: ceiling over the chaotic-ish states. Calibrated, D-057: the largest of 20 sample maxima
-was 1.39e-4. A backstop for gross errors only: second-order schemes are not seen at this
-ceiling (D-058)."""
+was 1.39e-4. A backstop for gross errors: second-order schemes sit near this ceiling, so it
+may or may not see them (D-063)."""
+
+V1_REGULAR_TIMEOUT_S: int = 120
+"""The ``@pytest.mark.timeout`` of the V1 test on regular states (D-036, D-063). On the Linux
+runner that test took 38.2 s of the default 60 s, a margin of 1.6 times; 120 s is 3.1 times the
+runner time. It changes no threshold and no gate value."""
 
 
 # --- The comparison rule --------------------------------------------------------------------
