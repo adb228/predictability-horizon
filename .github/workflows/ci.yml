@@ -16,9 +16,11 @@ permissions:
 
 # The event name is part of the group, so that a manual full run on a branch is not cancelled
 # by a push to the same branch (which starts the fast job), and the other way round.
+# On main a newer push does not cancel the full run of the previous one, so that a merge gets
+# its full run (D-070); on every other ref a newer run replaces the older one.
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   fast:
@@ -91,7 +93,7 @@ jobs:
         run: uv run --locked ruff format --check .
       - name: Full tier (all tests, no marker filter)
         # -n auto (one worker per core, with the default --dist load), at the owner's choice of
-        # 2026-10-14 (D-069). The laptop's -n 2 run of the full tier was 19.99 percent faster than
+        # 2026-10-15 (D-069). The laptop's -n 2 run of the full tier was 19.99 percent faster than
         # the serial one on pytest's own clock and 20.3 percent on the wall clock (medians of
         # three, with large noise), so D-067's 20 percent rule did not clearly say yes (D-068).
         # The first CI run shows the real effect; going back to serial is removing "-n auto".
