@@ -265,3 +265,35 @@ def test_no_other_test_module_or_helper_mentions_a_tier_marker() -> None:
     assert len(files) >= 15, "the scan found too few files"
     found = [p.name for p in files if p not in allowed and pattern.search(p.read_text())]
     assert not found, f"tier markers written by hand in: {found}"
+
+
+# ---- (g) the signal-method timeout works inside xdist workers (D-066 Q5) -----------------------
+
+HANG_THEN_CONTROL = """
+def test_hangs_forever():
+    while True:  # a Python-level hang
+        pass
+
+
+def test_control_runs_after_the_timeout():
+    assert True
+"""
+
+
+def test_a_hung_test_fails_with_a_timeout_inside_an_xdist_worker_and_the_session_continues(
+    pytester: pytest.Pytester,
+) -> None:
+    """The CI jobs may run under ``-n auto``: the signal timeout must still fire in a worker.
+
+    The tests run in the worker's main thread, which is why SIGALRM works there. The outer
+    ``timeout`` is a hard stop for the subprocess, as in ``tests/test_timeout_config.py``.
+    """
+    pytester.makepyfile(HANG_THEN_CONTROL)
+    result = pytester.runpytest_subprocess(
+        "-n", "2", "-v", "--timeout=2", "--timeout-method=signal", "-p", "no:cacheprovider",
+        timeout=30,
+    )  # fmt: skip
+    result.assert_outcomes(passed=1, failed=1)
+    result.stdout.fnmatch_lines(["*Failed: Timeout (>2.0s) from pytest-timeout.*"])
+    result.stdout.fnmatch_lines(["[[]gw*FAILED*test_hangs_forever*"])
+    result.stdout.fnmatch_lines(["[[]gw*PASSED*test_control_runs_after_the_timeout*"])
