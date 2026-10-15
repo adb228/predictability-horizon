@@ -43,7 +43,7 @@ FULL_FUNCTIONS: dict[str, int] = {
 }
 """Node id of a full function -> the number of cases it must have when collected."""
 
-MODERATE_FAST_SETS = 3
+MODERATE_FAST_SETS = 2
 """``K``: of the 20 moderate parameter sets, the first ``K`` stay fast and the rest are full."""
 
 SET_IDS: tuple[str, ...] = tuple(f"set-{i:02d}" for i in range(20))

@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -45,18 +46,27 @@ def _collect(*extra: str) -> list[str]:
 
 
 @pytest.fixture(scope="module")
-def collected() -> list[str]:
-    return _collect()
+def collections() -> dict[str, list[str]]:
+    """The three collections, run side by side (each is a separate process of about a second)."""
+    selections = {"all": (), "fast": ("-m", "fast"), "full": ("-m", "full")}
+    with ThreadPoolExecutor(max_workers=len(selections)) as pool:
+        futures = {name: pool.submit(_collect, *extra) for name, extra in selections.items()}
+        return {name: future.result() for name, future in futures.items()}
 
 
-@pytest.fixture(scope="module")
-def collected_fast() -> list[str]:
-    return _collect("-m", "fast")
+@pytest.fixture
+def collected(collections: dict[str, list[str]]) -> list[str]:
+    return collections["all"]
 
 
-@pytest.fixture(scope="module")
-def collected_full() -> list[str]:
-    return _collect("-m", "full")
+@pytest.fixture
+def collected_fast(collections: dict[str, list[str]]) -> list[str]:
+    return collections["fast"]
+
+
+@pytest.fixture
+def collected_full(collections: dict[str, list[str]]) -> list[str]:
+    return collections["full"]
 
 
 # ---- (a) every item of this session has exactly one tier --------------------------------------
@@ -80,8 +90,8 @@ def test_every_collected_item_has_exactly_one_tier_marker_and_it_is_the_declared
 # ---- (b) the declared data -------------------------------------------------------------------
 
 
-def test_the_subset_rule_keeps_the_first_three_of_twenty_sets_fast() -> None:
-    assert tiers.MODERATE_FAST_SETS == 3
+def test_the_subset_rule_keeps_the_first_two_of_twenty_sets_fast() -> None:
+    assert tiers.MODERATE_FAST_SETS == 2
     declared = tuple(f"set-{i:02d}" for i in range(20))
     assert declared == tiers.SET_IDS
     assert tiers.SET_IDS[0] == "set-00"
@@ -117,9 +127,9 @@ def test_the_subset_functions_are_the_sixteen_per_set_tests_and_the_o2_test() ->
     assert not set(functions) & set(tiers.FULL_FUNCTIONS)
 
 
-def test_the_number_of_full_tests_is_the_logged_322() -> None:
+def test_the_number_of_full_tests_is_the_pinned_339() -> None:
     per_family_full = len(tiers.SET_IDS) - tiers.MODERATE_FAST_SETS
-    assert sum(tiers.FULL_FUNCTIONS.values()) + len(tiers.SUBSET_FUNCTIONS) * per_family_full == 322
+    assert sum(tiers.FULL_FUNCTIONS.values()) + len(tiers.SUBSET_FUNCTIONS) * per_family_full == 339
 
 
 @pytest.mark.parametrize(
@@ -136,8 +146,8 @@ def test_the_number_of_full_tests_is_the_logged_322() -> None:
         ),
         (f"{PHYSICS}::test_e2_rk4_energy_drift_stays_under_the_ceiling_on_regular_states", "fast"),
         (f"{PENDULUM}::test_t1_mass_matrix_matches_the_oracle[set-00]", "fast"),
-        (f"{PENDULUM}::test_t3_acceleration_matches_the_oracle[set-02]", "fast"),
-        (f"{PENDULUM}::test_t3_acceleration_matches_the_oracle[set-03]", "full"),
+        (f"{PENDULUM}::test_t3_acceleration_matches_the_oracle[set-01]", "fast"),
+        (f"{PENDULUM}::test_t3_acceleration_matches_the_oracle[set-02]", "full"),
         (f"{PENDULUM}::test_t8_autodiff_jacobian_matches_the_oracle[set-19]", "full"),
         (
             f"{ORACLE}::test_o2_oracle_solution_satisfies_its_euler_lagrange_equations[set-10]",
@@ -220,7 +230,7 @@ def test_m_fast_and_m_full_select_exactly_the_declared_sets_so_the_hook_runs_bef
     assert not set(collected_fast) & set(collected_full)
     # a hook that ran after -m would have selected nothing (no markers yet) or everything
     assert declared_fast and declared_full
-    assert len(declared_full) == 322
+    assert len(declared_full) == 339
 
 
 # ---- (e) the hook adds the two markers and nothing else ---------------------------------------
@@ -290,10 +300,10 @@ def test_a_hung_test_fails_with_a_timeout_inside_an_xdist_worker_and_the_session
     """
     pytester.makepyfile(HANG_THEN_CONTROL)
     result = pytester.runpytest_subprocess(
-        "-n", "2", "-v", "--timeout=2", "--timeout-method=signal", "-p", "no:cacheprovider",
+        "-n", "2", "-v", "--timeout=1", "--timeout-method=signal", "-p", "no:cacheprovider",
         timeout=30,
     )  # fmt: skip
     result.assert_outcomes(passed=1, failed=1)
-    result.stdout.fnmatch_lines(["*Failed: Timeout (>2.0s) from pytest-timeout.*"])
+    result.stdout.fnmatch_lines(["*Failed: Timeout (>1.0s) from pytest-timeout.*"])
     result.stdout.fnmatch_lines(["[[]gw*FAILED*test_hangs_forever*"])
     result.stdout.fnmatch_lines(["[[]gw*PASSED*test_control_runs_after_the_timeout*"])

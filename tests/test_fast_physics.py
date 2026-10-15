@@ -33,8 +33,8 @@ E1_HORIZON = 100
 """E1 up to ``t = 100``; the gate runs to ``t = 1000`` (``E_HORIZON``)."""
 E1_N_REGULAR = 1
 """The first of the gate's 2 regular states."""
-E1_N_CHAOTIC = 2
-"""The first 2 of the gate's 5 chaotic-ish states."""
+E1_N_CHAOTIC = 1
+"""The first of the gate's 5 chaotic-ish states (D-067 knob 2: the second one is dropped)."""
 E1_CONTROL_N_STATES = 2
 """The looser-tolerance control runs on the first 2 chaotic-ish states, as in the gate."""
 V1_N_REGULAR = 3
@@ -49,6 +49,9 @@ V1_CONTROL_N_REGULAR = 3
 """The damped control of V1 runs on the first 3 regular states, as in the gate."""
 F_N_SAMPLES = 4000
 """F on a record of 4000 samples (200 time units); the gate takes 20000 (``F_N_SAMPLES``)."""
+F_COPY_CHECK_N_SAMPLES = 1000
+"""Record length of the check that the copy of the F measurement equals the gate's (a check on
+code, not a measurement, so it is kept short)."""
 
 
 # ---- E1 (D-053, D-054) ----------------------------------------------------------------------
@@ -78,7 +81,7 @@ E1_STATES = [
 def test_e1_reduced_dop853_energy_drift_stays_under_the_briefs_ceiling(state: np.ndarray) -> None:
     """Reduced version of E1 (D-054): the same ceiling ``1e-9`` up to ``t = 100``, not ``1000``.
 
-    The first regular state and the first 2 chaotic-ish states of the gate's ensembles, DOP853 at
+    The first regular state and the first chaotic-ish state of the gate's ensembles, DOP853 at
     its defaults. Catches an energy-dissipating or energy-pumping error in the field or the
     wrapper, and a reference tolerance 100 times looser (its control below). Cannot catch a
     drift that grows slowly and passes at ``t = 100`` but not at ``t = 1000`` (a reference
@@ -178,8 +181,10 @@ def test_v1_reduced_control_a_damped_field_fails_the_ceiling() -> None:
 # ---- F (D-056) ------------------------------------------------------------------------------
 
 
-def _fft_peaks(params: dp.Params, mode: str, integrator: str) -> list[float]:
-    """``ph.fft_peaks`` for a record of ``F_N_SAMPLES`` samples instead of the gate's 20000.
+def _fft_peaks(
+    params: dp.Params, mode: str, integrator: str, n_samples: int = F_N_SAMPLES
+) -> list[float]:
+    """``ph.fft_peaks`` for a record of ``n_samples`` samples instead of the gate's 20000.
 
     The same steps and constants; ``ph.spectrum_peaks`` does the spectrum. The gate's helper
     reads ``tol.F_N_SAMPLES`` inside and has no parameter for it.
@@ -189,7 +194,7 @@ def _fft_peaks(params: dp.Params, mode: str, integrator: str) -> list[float]:
     direction = ph.MODE_DIRECTIONS[mode]
     y0 = np.array([tol.F_AMPLITUDE * direction[0], tol.F_AMPLITUDE * direction[1], 0.0, 0.0])
     if integrator == "dop853":
-        rows = integrators.solve_reference(dp.vector_field, y0, params, h * np.arange(F_N_SAMPLES))
+        rows = integrators.solve_reference(dp.vector_field, y0, params, h * np.arange(n_samples))
     elif integrator == "rk4":
         rows = np.asarray(
             integrators.rk4_trajectory(
@@ -197,7 +202,7 @@ def _fft_peaks(params: dp.Params, mode: str, integrator: str) -> list[float]:
                 jnp.asarray(y0),
                 params,
                 tol.AGREE_DT * t_s,
-                F_N_SAMPLES - 1,
+                n_samples - 1,
                 tol.F_RK4_STRIDE,
             )
         )
@@ -265,22 +270,23 @@ def test_the_reduced_f_measurement_is_the_gates_measurement(
 ) -> None:
     """The copy ``_fft_peaks`` above returns exactly what ``ph.fft_peaks`` returns.
 
-    A check on the copy, not a measurement: the register's record length is set to the reduced
+    A check on the copy, not a measurement: the register's record length is set to a short
     one for this test only (``monkeypatch`` restores it afterwards, and nothing else reads it
     here), and the gate's own helper is run on the same case. The peaks must be identical.
     """
-    monkeypatch.setattr(tol, "F_N_SAMPLES", F_N_SAMPLES)
-    assert _fft_peaks(P, "generic", integrator) == ph.fft_peaks(P, "generic", integrator)
+    monkeypatch.setattr(tol, "F_N_SAMPLES", F_COPY_CHECK_N_SAMPLES)
+    copy = _fft_peaks(P, "generic", integrator, F_COPY_CHECK_N_SAMPLES)
+    assert copy == ph.fft_peaks(P, "generic", integrator)
 
 
 # ---- tripwire: the sizes of this file are the ones of D-067 ---------------------------------
 
 
 def test_the_sizes_of_the_reduced_physics_gates_are_the_ones_declared_in_d067() -> None:
-    assert (E1_HORIZON, E1_N_REGULAR, E1_N_CHAOTIC, E1_CONTROL_N_STATES) == (100, 1, 2, 2)
+    assert (E1_HORIZON, E1_N_REGULAR, E1_N_CHAOTIC, E1_CONTROL_N_STATES) == (100, 1, 1, 2)
     assert (V1_N_REGULAR, V1_T_REGULAR, V1_N_CHAOTIC, V1_T_CHAOTIC) == (3, 20, 6, 8)
     assert V1_CONTROL_N_REGULAR == 3
-    assert F_N_SAMPLES == 4000
+    assert (F_N_SAMPLES, F_COPY_CHECK_N_SAMPLES) == (4000, 1000)
     # a reduction is not larger than its gate; the chaotic V1 horizon is the gate's own
     assert E1_HORIZON < tol.E_HORIZON
     assert E1_N_REGULAR <= tol.E1_N_REGULAR
@@ -291,16 +297,16 @@ def test_the_sizes_of_the_reduced_physics_gates_are_the_ones_declared_in_d067() 
     assert V1_N_CHAOTIC <= tol.V_N_CHAOTIC
     assert V1_T_CHAOTIC == tol.V_CHAOTIC_T
     assert V1_CONTROL_N_REGULAR <= V1_N_REGULAR
-    assert F_N_SAMPLES < tol.F_N_SAMPLES
+    assert F_COPY_CHECK_N_SAMPLES < F_N_SAMPLES < tol.F_N_SAMPLES
     # the case lists are as large as declared
     assert len(E1_STATES) == E1_N_REGULAR + E1_N_CHAOTIC
 
 
 def test_the_reduced_physics_gates_take_the_first_states_of_the_gates_own_ensembles() -> None:
-    assert [p.id for p in E1_STATES] == ["regular-0", "chaotic-0", "chaotic-1"]
+    assert [p.id for p in E1_STATES] == ["regular-0", "chaotic-0"]
     for param, full in zip(E1_STATES[:1], ph.e1_regular_states()[:1], strict=True):
         assert np.array_equal(param.values[0], full)
-    for param, full in zip(E1_STATES[1:], ph.e1_chaotic_states()[:2], strict=True):
+    for param, full in zip(E1_STATES[1:], ph.e1_chaotic_states()[:E1_N_CHAOTIC], strict=True):
         assert np.array_equal(param.values[0], full)
 
 
