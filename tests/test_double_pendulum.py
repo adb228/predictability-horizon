@@ -1,6 +1,6 @@
-"""Tests T1 to T11 of the owner-written double-pendulum mechanics (D-030 to D-032).
+"""Tests T1 to T11 of the double-pendulum mechanics (D-030 to D-032).
 
-They stay red until the owner implements ``horizon.systems.double_pendulum``. Each test names
+They check ``horizon.systems.double_pendulum`` against the independent oracle. Each test names
 its tolerance class from ``horizon.tolerances`` and says in its docstring what it catches and
 what it is blind to. Every comparison goes through ``check_close``, the single rule
 ``|x - x_ref| <= ATOL + RTOL * s``, so no test can quietly use a looser one.
@@ -198,7 +198,7 @@ def test_t3_acceleration_matches_the_oracle_at_large_unwrapped_angles(case: case
 def test_t4_euler_lagrange_residual_of_the_acceleration_vanishes(case: cases.Case) -> None:
     """T4 (class IMPL, scale = sum of the monomials): the residual check of the gate.
 
-    The owner's float64 accelerations are substituted into the Euler-Lagrange equations
+    The implementation's float64 accelerations are substituted into the Euler-Lagrange equations
     derived independently by SymPy from the geometry, and the residual is evaluated at 60
     digits. It must vanish to rounding error relative to the size of the terms that cancel
     (the "natural scale"), which is a backward-error check: it does not amplify rounding the
@@ -223,7 +223,7 @@ def test_t4_euler_lagrange_residual_of_the_acceleration_vanishes(case: cases.Cas
 def test_t5_energy_is_stationary_along_the_vector_field(case: cases.Case) -> None:
     """T5 (class IMPL, scale = sum of the four terms): ``grad(E) . f = 0``, with no integration.
 
-    ``jax.grad`` of the owner's ``energy`` is paired with the owner's ``vector_field``.
+    ``jax.grad`` of the implementation's ``energy`` is paired with its ``vector_field``.
     Catches any inconsistency between them (a sign error in one Coriolis term, a missing
     term). Blind to a mistake made consistently in both, for example equations derived from
     the same wrong energy: only T1 to T4 and T8 catch those.

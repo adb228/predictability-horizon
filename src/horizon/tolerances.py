@@ -54,7 +54,7 @@ Basis: observed residuals were about 1e-59 absolute; a real error in the oracle 
 order one, so the gap between the two is more than 1e30.
 """
 
-# --- Comparing the owner's float64 code with the oracle -------------------------------------
+# --- Comparing the implementation's float64 results with the oracle -------------------------
 
 IMPL_RTOL: float = 1e-10
 """Relative tolerance for anything compared with the oracle.

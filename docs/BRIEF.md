@@ -19,10 +19,7 @@ The single most important rule: **I need to be able to explain and defend every 
 
 ## 1. Who I am
 
-- UCLA junior, triple major in Physics, Mathematics, and Philosophy. Comfortable with Lagrangian/Hamiltonian mechanics, linear algebra, ODEs, and probability. Most CS coursework done.
-- Research experience: co-first author on a NeurIPS 2026 workshop paper on hierarchical LLM agents (I built the experiment infrastructure and ran ~600 agent episodes). I've done RL environment and eval work professionally, plus robotics data work (egocentric data pipelines, π0.5 fine-tuning).
-- Completed ARENA chapters 0–3 (transformers, interp, RL, evals).
-- **Direction:** world models, action models, and simulation. This project is my public on-ramp to that area. It needs to be good enough to show research teams working on world models.
+Owner: physics and math undergraduate; derives and verifies the mathematics.
 
 ---
 
@@ -174,7 +171,7 @@ Each stage must be **a complete, finished result on its own**: a clean figure, a
 
 ## 4. Tech stack (confirm with me during calibration)
 
-- **Python 3.11+**, environment managed with **`uv`**.
+- **Python 3.12+** (D-027), environment managed with **`uv`**.
 - **Framework, my default preference: JAX** (`jax`, `equinox` for models, `optax` for optimizers, optionally `diffrax` for ODE solving). Why JAX: `jax.jacfwd` gives exact Jacobians for the variational Lyapunov method, and `vmap` batches thousands of initial conditions cheaply. If you think PyTorch (+ `torchdiffeq`) is better for this project, make the case briefly.
 - `scipy` for the reference integrator, `sympy` to derive and cross-check equations of motion.
 - `pytest` + `hypothesis` for tests, `ruff` for lint and format.
