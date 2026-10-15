@@ -27,7 +27,21 @@ uv run --locked ruff format --check .
 uv run --locked pytest
 ```
 
-The suite has 539 tests. It takes about 3 minutes on a laptop, and between 3 and 10 minutes on the CI runner, depending on the runner's speed (GitHub Actions, Ubuntu 24.04, one pinned Python version).
+`uv run --locked pytest` runs every test, the unchanged gates included. The suite has 613 tests and takes 3 to 4 minutes on a laptop, and between 3 and 10 minutes on the CI runner, depending on the runner's speed (GitHub Actions, Ubuntu 24.04, one pinned Python version).
+
+### Test tiers
+
+Every test is marked `fast` or `full`; the marker is assigned at collection from [`tests/tiers.py`](tests/tiers.py), so the gate test files carry no decorators and are unchanged.
+
+```bash
+uv run --locked pytest -m fast        # the fast tier: about 30 s on a laptop
+uv run --locked pytest                # everything: the full tier
+uv run --locked pytest -n auto        # optional: spread the tests over the cores (pytest-xdist)
+```
+
+The **fast tier is a smoke tier and never a gate.** It holds the cheap tests and reduced versions of the heavy gates (fewer states, shorter horizons, the same constants from `horizon.tolerances`, each reduced control still failing); it can miss what only the long horizons and the full ensembles show. Every claim of the project rests on the full tier. Details are in D-066 to D-068 of the decision log.
+
+In CI (`.github/workflows/ci.yml`), a push to a branch other than `main` runs the job *fast tier (smoke)*: lint, format check and `pytest -m fast`, plus a guard that fails the job if any fast test, setup or teardown takes 15 s or more. A pull request to `main`, a push to `main` and a manual run (`workflow_dispatch`) run the job *full tier (gates)*: lint, format check and `pytest` with no marker filter. The fast job runs with `-n auto` (one worker per core) and the full job runs serially, each as D-067's rule for `-n` decided from laptop measurements (D-068).
 
 The two scripts below print the measured numbers of the validation tests next to their predeclared thresholds, with a provenance header, and write no files:
 
