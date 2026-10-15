@@ -90,7 +90,9 @@ jobs:
       - name: Format check
         run: uv run --locked ruff format --check .
       - name: Full tier (all tests, no marker filter)
-        # Serial, with no -n: the laptop's -n 2 run of the full tier was 19.99 percent faster
-        # than the serial one on pytest's own clock and 20.3 percent on the wall clock (medians
-        # of three, with large noise), so D-067's 20 percent rule does not clearly say yes (D-068).
-        run: uv run --locked pytest --durations=15
+        # -n auto (one worker per core, with the default --dist load), at the owner's choice of
+        # 2026-10-14 (D-069). The laptop's -n 2 run of the full tier was 19.99 percent faster than
+        # the serial one on pytest's own clock and 20.3 percent on the wall clock (medians of
+        # three, with large noise), so D-067's 20 percent rule did not clearly say yes (D-068).
+        # The first CI run shows the real effect; going back to serial is removing "-n auto".
+        run: uv run --locked pytest -n auto --durations=15
