@@ -18,6 +18,7 @@ dev = [
     "mpmath>=1.3.0",
     "pytest>=9.1.1",
     "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.17.0",
     "sympy>=1.14.0",
 ]
@@ -59,7 +60,8 @@ timeout_method = "signal"
 timeout_func_only = false  # fixture setup, including the lazy oracle build, counts too
 faulthandler_timeout = 120  # diagnostic stack dump only, not a pass/fail threshold
 markers = [
-    "slow: long-running validation tests (CI still runs them)",
+    "fast: the smoke tier; assigned at collection from tests/tiers.py, never a gate (D-066)",
+    "full: the heavy tests, run on pull requests and on main; assigned from tests/tiers.py (D-066)",
 ]
 filterwarnings = [
     # JAX emits this when a float64 request is silently truncated to float32.
