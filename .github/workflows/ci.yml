@@ -1,19 +1,73 @@
 name: CI
 
+# Two tiers (docs/DECISIONS.md, D-066 and D-067). A push to a branch other than main runs the
+# fast tier, a smoke test that answers quickly and is never a gate. A pull request to main, a
+# push to main (merges are pushed straight to main, D-064) and a manual run execute the full
+# tier: every test, with no marker filter, so every gate runs unchanged.
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# The event name is part of the group, so that a manual full run on a branch is not cancelled
+# by a push to the same branch (which starts the fast job), and the other way round.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
+  fast:
+    name: fast tier (smoke)
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.8.22"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Show the environment
+        run: |
+          uv run --locked python -c "
+          import sys
+          from importlib.metadata import version
+          print('python', sys.version.split()[0], *(f'{p} {version(p)}' for p in ('jax', 'jaxlib', 'numpy', 'scipy')))
+          "
+      - name: Lint
+        run: uv run --locked ruff check .
+      - name: Format check
+        run: uv run --locked ruff format --check .
+      - name: Fast tier (smoke, not a gate)
+        shell: bash
+        # --durations-min=15 lists only the test, setup and teardown phases of 15 s or more,
+        # and the output is saved for the step below. -n auto (one worker per core, with the
+        # default --dist load) is used because the laptop's -n 2 run of this tier was more than
+        # 20 percent faster than its serial run (D-068).
+        run: uv run --locked pytest -m fast -n auto --durations=0 --durations-min=15 2>&1 | tee fast-tier.log
+      - name: Duration guard
+        shell: bash
+        # Fails if any phase was listed, that is, took 15 s or more. 15 s on the runner is about
+        # 4.3 s on the laptop (the runner has been up to 3.5 times slower, D-066 P8): above the
+        # slowest planned fast test (the first oracle test, about 2 s on the laptop) and below
+        # the heavy tests that belong to the full tier. It catches a heavy test that was
+        # forgotten in the default tier (D-066 Q1). It catches creep; it is not a gate.
+        run: |
+          if grep -E '^[0-9]+\.[0-9]+s +(call|setup|teardown) ' fast-tier.log; then
+            echo "A fast-tier test, setup or teardown took 15 s or more: move it to the full tier in tests/tiers.py."
+            exit 1
+          fi
+
+  full:
+    name: full tier (gates)
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -35,5 +89,8 @@ jobs:
         run: uv run --locked ruff check .
       - name: Format check
         run: uv run --locked ruff format --check .
-      - name: Tests
+      - name: Full tier (all tests, no marker filter)
+        # Serial, with no -n: the laptop's -n 2 run of the full tier was 19.99 percent faster
+        # than the serial one on pytest's own clock and 20.3 percent on the wall clock (medians
+        # of three, with large noise), so D-067's 20 percent rule does not clearly say yes (D-068).
         run: uv run --locked pytest --durations=15
