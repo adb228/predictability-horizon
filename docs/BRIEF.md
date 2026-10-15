@@ -19,10 +19,7 @@ The single most important rule: **I need to be able to explain and defend every 
 
 ## 1. Who I am
 
-- UCLA junior, triple major in Physics, Mathematics, and Philosophy. Comfortable with Lagrangian/Hamiltonian mechanics, linear algebra, ODEs, and probability. Most CS coursework done.
-- Research experience: co-first author on a NeurIPS 2026 workshop paper on hierarchical LLM agents (I built the experiment infrastructure and ran ~600 agent episodes). I've done RL environment and eval work professionally, plus robotics data work (egocentric data pipelines, π0.5 fine-tuning).
-- Completed ARENA chapters 0–3 (transformers, interp, RL, evals).
-- **Direction:** world models, action models, and simulation. This project is my public on-ramp to that area. It needs to be good enough to show research teams working on world models.
+Owner: physics and math undergraduate; derives and verifies the mathematics.
 
 ---
 
