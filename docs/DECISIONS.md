@@ -1079,3 +1079,73 @@ Not sent to a reviewer, as D-072 and D-073; a fresh reviewer then checks only th
 - **Choice, R4.** The line of `CLAUDE.md` about the GitHub ruleset on `main` says "(not yet in place)". Whether this repository's plan supports rulesets while it is private is still not checked.
 - **Not done, by the owner's instruction or as accepted limits.** R3's other files (`pyproject.toml`, `tests/test_timeout_config.py`, `tests/conftest.py`, the `.claude` files and `CLAUDE.md`) get no ask rule; R5 (the reviewer's tools) is checked once in the restarted session by asking the `reviewer` agent to list them; N1 to N3 (long-option prefixes, combined short flags, `-d main`, `git switch -C`, `pytest --basetemp`) are the pattern gaps accepted in D-073. N4: edits to `docs/BRIEF.md` also prompt (settings). N5: the scan of D-065 was also followed by the rest of pull request #4; the full re-run before the visibility change covers it. N6: the date of D-073 is not resolved.
 - **Next free number:** D-075.
+
+## The repository is public; no GitHub ruleset (2026-10-16)
+
+### D-075 No ruleset on `main`: the guards are the instructions, the deny list a backstop; the history scan committed (Owner)
+Not sent to a reviewer for design: it concerns the owner's GitHub account and is the owner's decision. A fresh reviewer checks the diff (that no document still claims a ruleset, and the script). The agent wrote this entry and the commits that follow it. D-073 and D-074 are pushed and are not edited: this entry supersedes their ruleset clauses.
+- **State.** The owner made the repository public (`gh repo view` reports `PUBLIC`, checked on 2026-10-16); the agent did not change it. CI on `main` after the merge of pull request #6 was green: push run 38946023757 on `0c7b209`, the full job `613 passed in 365.08s` with 4 workers, the fast job skipped as the workflow intends on `main`. The description of pull request #6 said that the reviewer has Bash for read-only commands; at the owner's instruction it now says that the reviewer has Read, Grep and Glob only (the rest of the text is unchanged).
+- **The owner's decision (2026-10-16).** No GitHub ruleset is added. **The guards against a force-push, and against deleting or rewriting `main`, are the instructions in `CLAUDE.md`; the deny list in `.claude/settings.json` is a backstop.** This supersedes, in D-073 ("Choice, what guards what"), the ruleset on `main` as a guard and the statement that the owner sets it up, and in D-074 ("Choice, R4"), the "(not yet in place)" line and the open question whether the plan supports rulesets while the repository is private. Everything else in those entries stands.
+- **The consequence, stated plainly.** Nothing on the server blocks a force-push to `main` or its deletion, and that includes pushes made outside Claude Code (the reason D-073 gave for preferring a ruleset to a hook). The deny list has the gaps that D-073 and D-074 record (combined short flags, quoted refspecs, long-option prefixes, and others); they are accepted as limits of a backstop. No fix is proposed here.
+- **Changes.** `CLAUDE.md`: the "Never" line names the instructions as the guard and the deny list as the backstop, and the next free number. `PROGRESS.md`: the same for force-push; the repository is public; the D-065 scan is a committed script; the pending re-scan item is done; the log range and the next free number; the CI worker count (two workers while the repository was private, four since it became public, on runs 38946023757, 38950677514 and 38950683651; corrected after the review of pull request #7). `CLAUDE.md`, `PROGRESS.md` and `.claude/agents/reviewer.md`: four allowed e-mail addresses (corrected after the review of pull request #7). "Rulesets" stays in the list of account-level things that need the owner's approval: it is a permission, not a guard.
+- **The history scan, committed.** The pending item of D-073 (re-run the D-065 scan and record its commands) is closed by `scripts/history_scan.sh`, the commands that the agent ran on 2026-10-16 as an uncommitted lab on `0c7b209`, tidied. Whether that lab run came before or after the change of visibility is not recorded. What it checks: commit identities and messages against the allowlist of `CLAUDE.md`; e-mail addresses in the tree and in every diff; token-, key- and password-like strings, phone-number-like strings and local home and temporary paths in every diff and message; sensitive-looking file names anywhere in history; blobs over 1 MB. Differences from D-065's procedure: the script names no address and no word outside the allowlist, since the repository is public. **Every address that is not on the allowlist is printed redacted, in every section, and before any line is cut to 160 characters**, which keeps the masking of the owner's university address without writing its domain into the repository; section 1 lists the commits that carry such an address. D-065's check of a word in the tree takes its words from the variable `HISTORY_SCAN_WORDS` and is skipped when that is unset; the descriptions of pull requests are not scanned (they are not in git; the lab run of 2026-10-16 found no e-mail address, no local path and no token-like string in those of pull requests #1 to #6). The script excludes itself from the tree and diff sections, because its patterns would match themselves. Author and committer names are printed as they are; only addresses are masked. It is read-only (`git status` runs with `--no-optional-locks`), needs `git`, `grep`, `sed`, `awk` and `perl`, no new dependency, and nothing runs it in CI.
+- **Corrected after the review of pull request #7** (a fresh reviewer, head `54c7f73`, `CHANGES REQUIRED`; this entry is not yet merged, so it is corrected in place, as D-068 and D-069 were). **R1:** this entry, the script and the description of the pull request said that the script names no address outside the allowlist, but it named `noreply@github.com`, which was not one of the three addresses of `CLAUDE.md`. **The owner's decision (option b): `noreply@github.com`, GitHub's public committer address, is the fourth allowed address**, because masking it would make it indistinguishable from the university address in the output. The statement is now true. **R2:** sections 5 to 7 cut lines to 160 characters before masking them, so a cut inside an address could leave a fragment in clear; they now mask first. Nothing leaked in the earlier run. **Nits:** sections 8 and 9 and the header line are masked too; `git status` runs with `--no-optional-locks`; the script's header says that names are not masked; and the CI worker count in `PROGRESS.md`. The output below replaces the one pasted before the review and comes from a new run of the corrected script.
+- **The output**, of `scripts/history_scan.sh 0c7b209` run from a clean tree with the script as committed in `b90b24a`, with `HISTORY_SCAN_WORDS` unset, unedited (corrected after the review of pull request #7). Reading it: it matches the lab run and D-065. The only address outside the allowlist is the owner's university address, in the author field of the GitHub merge commits of pull requests #1 and #2 and in the two diffs of D-021's text (D-065, kept by the owner's decision); GitHub's `noreply@github.com`, now allowed, is the committer of those two commits and appears once in the text of D-065. There is no token, key, password, phone number or sensitive file name in the history and no blob over 1 MB. The one path line is the heading of section 7 of D-065's pasted output, not a path; because this entry pastes that line again, later runs will show it twice.
+
+```
+scan of 0c7b20966c7fd21068c04beb63d61c3ff4eba31b (0c7b209)   (0 uncommitted changes)
+commits reachable from 0c7b209: 84
+
+1. Commit identities (author | committer):
+   2 ---___--- <<address outside the allowlist, redacted>> | GitHub <noreply@github.com>
+  82 adb228 <172058618+adb228@users.noreply.github.com> | adb228 <172058618+adb228@users.noreply.github.com>
+   author or committer e-mails outside the allowlist:
+     <address outside the allowlist, redacted>
+   commits with such an e-mail:
+     b66f6f9 <address outside the allowlist, redacted> noreply@github.com Merge pull request #2 from adb228/milestone-3-integrators
+     5373671 <address outside the allowlist, redacted> noreply@github.com Merge pull request #1 from adb228/milestone-2-mechanics
+
+2. E-mail addresses in tracked files at 0c7b209 (uv.lock and this file excluded):
+   7 172058618+adb228@users.noreply.github.com
+   8 cursoragent@cursor.com
+   2 noreply@anthropic.com
+   1 noreply@github.com
+
+3. E-mail addresses in the diffs of all history (decorators filtered):
+  11 172058618+adb228@users.noreply.github.com
+   2 <address outside the allowlist, redacted>
+  32 cursoragent@cursor.com
+   4 noreply@anthropic.com
+   1 noreply@github.com
+
+4. E-mail addresses in commit messages:
+  66 cursoragent@cursor.com
+  10 noreply@anthropic.com
+   outside the allowlist:
+   none
+
+5. Token, key and password-like strings:
+   diff lines: 0
+   commit-message lines: 0
+
+6. Phone-number-like strings:
+   diff lines: 0
+   commit-message lines: 0
+
+7. Local home and temporary paths:
+   diff lines: 1
+     +7. Local home paths in the diffs of all history (/Users/..., /home/...):
+   commit-message lines: 0
+
+8. Sensitive-looking file names, in the tree and anywhere in history (deleted files included):
+   none
+   files ever present in history: 45; tracked now: 45
+
+9. Blobs larger than 1 MB anywhere in history:
+   none
+
+10. Words from HISTORY_SCAN_WORDS (case-insensitive), by count only:
+   skipped (HISTORY_SCAN_WORDS is not set)
+```
+
+- **Next free number:** D-076.
