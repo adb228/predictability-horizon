@@ -1,0 +1,54 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync --locked)",
+      "Bash(uv run --locked pytest:*)",
+      "Bash(uv run --locked ruff:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git switch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create --draft:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)"
+    ],
+    "ask": [
+      "Edit(.github/workflows/**)",
+      "Write(.github/workflows/**)",
+      "Edit(src/horizon/tolerances.py)",
+      "Write(src/horizon/tolerances.py)",
+      "Edit(docs/BRIEF.md)",
+      "Write(docs/BRIEF.md)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git tag:*)",
+      "Bash(gh api:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh release:*)",
+      "Bash(gh secret:*)",
+      "Bash(gh variable:*)",
+      "Bash(gh workflow:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f)",
+      "Bash(git push * +*)",
+      "Bash(git rebase:*)",
+      "Bash(git commit --amend:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh repo edit:*)"
+    ]
+  }
+}
