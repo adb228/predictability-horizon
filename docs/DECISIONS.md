@@ -1194,7 +1194,7 @@ Logged **before** any milestone 5 code, test, test case or calibration run exist
   - `hamiltonian(z, params) -> Array`: `H = ½ pᵀ M(q)⁻¹ p + V(q)`.
   - `canonical_vector_field(z, params) -> Array`: `q̇ = M⁻¹ p` and `ṗ = Ṁ ω + M α`, with `ω = M⁻¹ p` and `α = acceleration((q, ω))`. This reuses the verified mechanics. The derivation note shows that it equals `−∂H/∂q`.
   - The angles `q` are never wrapped. The angle mask in `(q, p)` is `(True, True, False, False)`, as in `(θ, ω)`.
-- **Tests (IDENTITY class, `IDENTITY_RTOL` and `IDENTITY_ATOL`, at the existing case states and parameter sets):**
+- **Tests (IDENTITY class, `IDENTITY_RTOL` and `IDENTITY_ATOL`, at the existing case states and parameter sets: the 20 moderate parameter sets with their states and the large-angle states of D-032; review: nit):**
   - the round trip `from_canonical(to_canonical(x)) = x`;
   - the conjugacy `canonical_vector_field(Φ(x)) = DΦ(x) · vector_field(x)`, with `DΦ` from `jax.jacfwd`;
   - Hamilton's equations `canonical_vector_field = J ∇H`, with `∇H` from `jax.grad`, which is an independent path;
