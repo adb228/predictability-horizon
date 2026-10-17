@@ -1152,11 +1152,11 @@ commits reachable from 0c7b209: 84
 
 ## Milestone 5: the design of the Lyapunov estimators (2026-10-16)
 
-Logged **before** any milestone 5 code, test, test case or calibration run exists, after the math walkthrough of 2026-10-16 and the owner's confirmation that they have worked through it, including the check of D-008 (D-039). Every entry below is a proposal for the owner's approval and for the design review of a fresh `reviewer` subagent (D-072); its verdict is added to each heading before this section is pushed. **No number in this section was measured.** The values the calibration lab may set are named in D-083 and are logged in a later entry, before any gate test runs.
+Logged **before** any milestone 5 code, test, test case or calibration run exists, after the math walkthrough of 2026-10-16 and the owner's confirmation that they have worked through it, including the check of D-008 (D-039). Every entry below is a proposal for the owner's approval and for the design review of a fresh `reviewer` subagent (D-072). **Design review of 2026-10-16** (head `42112c7`): DESIGN AMENDED, with findings R1 to R5 (required), recommendations and nits. They are applied in place below, each marked "(review: …)", because the section has not been pushed. The verdict per entry is in each heading. A fresh reviewer checks the amendments before the owner's approval is asked. **No number in this section was measured.** The values the calibration lab may set are named in D-083 and are logged in a later entry, before any gate test runs.
 
 **The owner's instructions for this design (2026-10-16), which every entry follows.** (1) **Gates come from theory or literature, never from our own runs.** The exact invariants are the references: the exponent sum is 0 in `(q, p)`, `(1/T) ln[det M(θ₀) / det M(θ_T)]` in `(θ, ω)` and `−(σ + 1 + β) = −41/3` for Lorenz, all up to integration error. The Lorenz `λ₁` is the published value, with a tolerance justified by finite-time error bars, not fitted to our output. (2) **The calibration lab may set the renormalization interval `τ`, the QR cadence and the transient `t_trans`, and nothing else**: no reference value and no tolerance. (3) **The numerical verification of the D-008 formula is an explicit milestone 5 gate** (D-079). (4) Integrated states are never wrapped; only differences are (D-010). (5) Seed streams start at 4000.
 
-### D-076 Scope, files and order of work
+### D-076 Scope, files and order of work (review: APPROVE)
 - **Choice.** Two estimators in `src/horizon/lyapunov.py` (D-077): Benettin's two-trajectory method and the tangent-space method with QR. Canonical coordinates for the pendulum go in `src/horizon/systems/double_pendulum.py` (D-078). They are validated on the three systems of D-009 (D-080, D-081), then compared on the pendulum (D-082). The files, in the order of work, as in milestones 3 and 4:
   1. this log;
   2. `docs/derivations/lyapunov.md`, the note with its claim-to-test table. It also holds the derivations the owner verifies (the finite-time bound of D-080, the per-step residual of D-079, the Benettin–QR equivalence and the rounding bound of D-082);
@@ -1172,14 +1172,14 @@ Logged **before** any milestone 5 code, test, test case or calibration run exist
 - **Alternatives:** a public `horizon.systems.lorenz` module, which a later stage might want; it can be promoted then, under its own entry.
 - **Why:** this is the pattern of milestones 3 and 4, and the plan's file names.
 
-### D-077 Public interface of `horizon.lyapunov`
+### D-077 Public interface of `horizon.lyapunov` (review: AMEND)
 - **Choice.** The estimators follow the conventions of D-028 and D-042: one state per call, float64, a required `params`, an autonomous field `f(state, params)`, and batching by the caller with `jax.vmap`. Both are built on `integrators.rk4_step` with a fixed `dt`. Step counts are static Python ints, checked in Python; `dt`, the states, the frame and `params` are traced.
   - `wrap(delta) -> Array`: `((delta + π) mod 2π) − π`, elementwise (D-010).
   - `state_difference(a, b, angle_mask) -> Array`: `a − b` with `wrap` applied to the components where the static boolean `angle_mask` is true. It is the only place where wrapping happens.
-  - `benettin(f, state0, params, direction0, *, dt, d0, steps_per_renorm, n_transient, n_renorm, angle_mask) -> BenettinResult`. The reference trajectory starts at `state0` and the perturbed one at `state0 + d0 · direction0`, with `‖direction0‖₂ = 1`. Every `steps_per_renorm` steps (`τ_B = steps_per_renorm · dt`), the method computes `Δ = state_difference(x̃, x)` and `d = ‖Δ‖₂`, records `ln(d / d0)`, and sets `x̃ ← x + (d0 / d) Δ`. The first `n_transient` intervals are run and discarded, and then `n_renorm` intervals are recorded. `BenettinResult` has `log_growth` with shape `(n_renorm,)` and `final_state`.
-  - `tangent_qr(f, state0, params, frame0, *, dt, steps_per_qr, n_transient, n_qr) -> QRResult`. `frame0` is an `n × k` matrix with orthonormal columns. Each step advances the state with `rk4_step` and every column with `jax.jvp` of `rk4_step`, which is the exact derivative of the RK4 step map. Every `steps_per_qr` steps (`τ_Q = steps_per_qr · dt`), the frame is factored as `QR` with `jnp.linalg.qr`; `ln|R_ii|` is recorded and the frame becomes `Q`. Taking the absolute value makes the sign convention of the factorization irrelevant. `QRResult` has `log_r` with shape `(n_qr, k)`, `states` with shape `(n_qr + 1, n)` (the state at each recorded QR time, from the end of the transient on) and `final_state`.
+  - `benettin(f, state0, params, direction0, *, dt, d0, steps_per_renorm, n_transient, n_renorm, angle_mask) -> BenettinResult`. The reference trajectory starts at `state0` and the perturbed one at `state0 + d0 · direction0`, with `‖direction0‖₂ = 1`. Every `steps_per_renorm` steps (`τ_B = steps_per_renorm · dt`), the method computes `Δ = state_difference(x̃, x)` and `d = ‖Δ‖₂`, records `ln(d / d0)`, and sets `x̃ ← x + (d0 / d) Δ`. The first `n_transient` intervals are run and discarded, and then `n_renorm` intervals are recorded. `BenettinResult` has `log_growth` with shape `(n_renorm,)`, `final_state`, and `max_abs_state`, the largest `‖x(t)‖_∞` of the reference trajectory over every step of the recorded window. `δ_BQ` needs `max_abs_state` (D-082) (review: Rec).
+  - `tangent_qr(f, state0, params, frame0, *, dt, steps_per_qr, n_transient, n_qr) -> QRResult`. `frame0` is an `n × k` matrix with orthonormal columns. Each step advances the state with `rk4_step` and every column with `jax.jvp` of `rk4_step`, which is the exact derivative of the RK4 step map. Every `steps_per_qr` steps (`τ_Q = steps_per_qr · dt`), the frame is factored as `QR` with `jnp.linalg.qr`; `ln|R_ii|` is recorded and the frame becomes `Q`. Taking the absolute value makes the sign convention of the factorization irrelevant. `QRResult` has `log_r` with shape `(n_qr, k)`, `states` with shape `(n_qr + 1, n)` (the state at each recorded QR time, from the end of the transient on), `final_state` and `max_abs_state`. With the static flag `step_logdet=True` (`k = n` only), it also returns `log_det_steps` with shape `(n_qr,)`: per interval, the sum of `slogdet(jax.jacfwd(rk4_step))` over that interval's steps. That sum is computed in the same scan along the same trajectory, so the identity (a) of D-079 never compares two trajectories (review: R1).
   - `exponents(log_terms, interval) -> Array`: the mean over the recorded intervals divided by the interval. `running_exponents(log_terms, interval)` gives the cumulative estimate after each interval, for the running-estimate figure.
-  - **Times are integer multiples** of `dt`, never accumulated (D-042). `t_trans = n_transient · τ`, and the averaging time is `T = n_renorm · τ_B` or `n_qr · τ_Q`.
+  - **Times are integer multiples** of `dt`, never accumulated (D-042). **Common window (review: R4).** Wherever a Benettin and a QR result are compared (D-082), `t_trans` and `T` must be common multiples of `τ_B` and `τ_Q`, so that `n_transient · τ_B` equals the QR transient and `n_renorm · τ_B = n_qr · τ_Q`. Both runs then average over the same window from the same state and direction. The test asserts this before it compares. `t_trans = n_transient · τ`, and the averaging time is `T = n_renorm · τ_B` or `n_qr · τ_Q`.
 - **Why RK4 and not DOP853.** With a fixed step, the tangent propagation through `jax.jvp` is the exact derivative of the discrete map that the state follows. That makes two things true by construction:
   - Benettin's finite difference and QR's first column measure the same map (D-082).
   - The per-step identity of D-079 is exact up to the method's local error.
@@ -1187,7 +1187,7 @@ Logged **before** any milestone 5 code, test, test case or calibration run exist
   An adaptive step sequence breaks both. `rk4_step` is validated in milestones 3 and 4. For Lorenz, `|λ₃| dt = 14.57 / 128 ≈ 0.11`, far inside RK4's stability region.
 - **Alternatives:** DOP853 through `solve_reference`, with the variational equations appended (a Python loop of restarts, and an inexact tangent map); a combined estimator returning both results; `Q` with positive diagonal instead of `|R_ii|` (equivalent).
 
-### D-078 Canonical coordinates for the pendulum (public surface)
+### D-078 Canonical coordinates for the pendulum (public surface) (review: APPROVE)
 - **Choice.** New functions in `src/horizon/systems/double_pendulum.py`, with the conventions of D-028. Nothing in the module is canonical yet, so this extends the interface fixed by D-028.
   - `to_canonical(state, params) -> Array`: `(θ, ω) ↦ (q, p) = (θ, M(θ) ω)`, shape `(4,)`.
   - `from_canonical(z, params) -> Array`: the inverse, `ω = M(q)⁻¹ p`, by the closed-form 2 × 2 solve already used in `acceleration`.
@@ -1205,33 +1205,37 @@ Logged **before** any milestone 5 code, test, test case or calibration run exist
 - **Alternatives:** a separate module `systems/double_pendulum_canonical.py`; `ṗ` by `jax.grad(H)` in production, which would be the test path; a generic canonical transform.
 - **Why:** one module holds the mechanics, and the production path and the test path are independent.
 
-### D-079 The exact-invariant gates, including the D-008 gate
+### D-079 The exact-invariant gates, including the D-008 gate (review: AMEND)
 These test the exact sums at every `T`, "up to integration error", **without a tolerance fitted to our runs**. Each invariant is split into two parts that telescope to the finite-`T` statement. With the full frame (`k = n`), `Σᵢ ln|R_ii|` over a run equals `ln|det|` of the product of the step Jacobians, because every `Q` has `|det Q| = 1`.
-- **(a) Bookkeeping identity, rounding only, per QR interval.** For every recorded interval `j`, `Σᵢ ln|R_ii|` equals `Σ ln|det J_step(x_n, dt)|` over that interval's steps, re-stepped in the test from `states[j]`, where `J_step = jax.jacfwd(rk4_step)` and `ln|det|` comes from `jnp.linalg.slogdet`. The check is per interval, not over the whole run: a chaotic trajectory recomputed in a separately compiled function can differ from the run in the last bits, and over a long run those bits grow into a different trajectory. Within one interval the growth is at most `e^{λ τ_Q}`, so the check stays at rounding level. Summed over the intervals, the per-interval identity is the whole-run statement. This independent path does not go through the frame, the QR factorization, the cadence or the accumulation. The tolerance is the IDENTITY class (`IDENTITY_RTOL`, `IDENTITY_ATOL`), and the scale is `Σ_steps |ln|det J_step|| + Σ |ln|R_ii||`, the size of what is summed (D-031). This is a statement about rounding. It contains no integration error.
+- **(a) Bookkeeping identity, rounding only, per QR interval.** For every recorded interval `j`, `Σᵢ ln|R_ii|` equals `log_det_steps[j]`, the sum of `ln|det J_step(x_n, dt)|` over that interval's steps. Here `J_step = jax.jacfwd(rk4_step)` and `ln|det|` comes from `jnp.linalg.slogdet`. Both are computed in the same scan along the same trajectory (D-077), so no re-stepped trajectory can drift away from the run (review: R1; the first draft re-stepped from `states[j]`, and in `(θ, ω)` that drift enters through `ln det J_step ≈ h · div f`). Summed over the intervals, the per-interval identity is the whole-run statement.
+  - **Tolerance (review: R1).** It is not the IDENTITY class. The first draft used that class, but the rounding of a propagated frame's log-volume scales with the frame's conditioning within an interval, which the τ_Q rule let reach about `1e8`, and the basis of `IDENTITY_RTOL` does not cover that. The tolerance is now a **rounding bound derived in the note** and evaluated from the run's own recorded `ln|R_ii|`: per interval, `c · ε_mach · steps_per_qr · n · κ_j`, where `κ_j = R₁₁/R_nn` of that interval. The note derives the constant `c`, and the owner checks it. The τ_Q rule of D-083 is also tightened, so that `κ_j` stays at most about `1e3`. **I'm not certain of `c`**; like `δ_BQ` it is a formula, not a fitted number.
+  - **Control (review: Rec, D-058):** a frame propagated by the `jvp` of an explicit Euler step while the state and `log_det_steps` follow RK4. The two sides differ by `O(h²)` per step and must fail the bound. This independent path does not go through the frame, the QR factorization, the cadence or the accumulation. The tolerance is the IDENTITY class (`IDENTITY_RTOL`, `IDENTITY_ATOL`), and the scale is `Σ_steps |ln|det J_step|| + Σ |ln|R_ii||`, the size of what is summed (D-031). This is a statement about rounding. It contains no integration error.
 - **(b) Per-step residual against the exact value, by order of convergence.** The residual is `r(x, dt) = ln|det J_step(x, dt)| − ℓ(x, dt)`, where `ℓ` is the exact log-volume change of the flow over one step:
   - Lorenz: `ℓ = −(σ + 1 + β) dt`;
   - pendulum in `(q, p)`: `ℓ = 0`;
   - pendulum in `(θ, ω)`: `ℓ = ln det M(θ_n) − ln det M(θ_{n+1})`, with `θ_{n+1}` the RK4 step's own output. This is D-008 for one step.
 
   RK4's step map differs from the flow by `O(dt⁵)`, so `r = O(dt⁵)`, and faster where a structure cancels the leading term. A wrong formula leaves an `O(dt)` residual.
-  - **Gate:** at every seeded state, the least-squares slope of `log|r|` against `log dt` over the grid is **at least 4.8**. That is the theoretical local order 5 minus the 0.2 margin of D-045. The bound is one-sided because a faster decay is still integration error.
+  - **Gate:** at every seeded state, the least-squares slope of `log|r|` against `log dt` over the grid is **at least 4.0** (review: R2; the first draft had 4.8, borrowing the 0.2 margin that D-045 set for a different statistic). The basis is the separation of orders, not a margin: correct code gives at least 5, and every control gives at most 2 (`O(h)`, or `O(h²)` where `div f` vanishes). 4.0 sits between them, about a full order from each, so the next term of the expansion (`z⁶/144` against `z⁵/120`, which moves the slope by about 0.1 to 0.2 at `h‖Df‖ ≈ 0.2`) cannot cross it. The bound is one-sided because a faster decay is still integration error. **The value is the owner's choice (Q6).**
+  - **Sign rule (review: R2):** `r` must have one sign over the whole grid. If it changes sign, the leading coefficient is passing through zero near that state, the slope means nothing, and the test **fails as inconclusive**.
   - **Validity rule (D-045):** `|r|` at the smallest `dt` must be at least `1e3 · ε_mach ≈ 2.2e-13`, which is above the rounding of `slogdet` for a 4 × 4 matrix near the identity. If it is smaller, the test **fails as inconclusive** and never passes.
-  - **Grids:** pendulum `dt ∈ {0.16, 0.08, 0.04, 0.02}`; Lorenz `dt ∈ {0.02, 0.01, 0.005, 0.0025}`, finer because `‖Df‖` reaches about 30 on the attractor. Both are coarse enough for the validity rule to hold even if the decay is `O(dt⁶)`, as it is for linear Hamiltonian flows.
+  - **Grids (review: R2):** pendulum `dt ∈ {0.08, 0.04, 0.02, 0.01}`; Lorenz `dt ∈ {0.005, 0.0025, 0.00125, 0.000625}`. Both keep `h_max · ‖Df‖_max ≲ 0.2`, with `‖Df‖` up to about 3 on the moving pendulum states and about 30 on the Lorenz box. The first draft's coarse ends reached 0.5 to 0.8. On paper, `|r| ≈ ‖Df‖⁵ h⁵ / 120` at `h_min` is about `2e-11` for Lorenz and about `2e-10` for the pendulum, well above the floor `2.2e-13`. If the decay is `O(h⁶)`, as is possible in `(q, p)`, where the trace of an odd power of a Hamiltonian matrix vanishes, the margin is thinner. The note shows the estimate, and **I'm not certain of it**. A floor failure is reported as inconclusive and is never answered by a new grid.
   - **States:** 8 pendulum moving states (stream 4006; `θ` uniform in `[−π, π]`, `ω` uniform in `[−2, 2]`, default parameters), used in both coordinate systems, and 8 Lorenz points (stream 4007; `x, y` uniform in `[−15, 15]`, `z` uniform in `[10, 40]`).
-- **Telescoping (a) and (b)** gives the claim of D-008 and the two exact sums at every `T`. The QR sum over a run equals the exact log-volume change plus `Σ r`, and every `r` is integration error of local order at least 5. **The D-008 gate is (b) in `(θ, ω)` together with (a) on the `(θ, ω)` pendulum runs of D-082.** It is a gate of milestone 5, as the owner instructed.
+- **Telescoping (a) and (b)** gives the claim of D-008 and the two exact sums at every `T`. This is theory together with checks: (a) is checked along every run, and (b) at the 8 sampled states per system, not at every step of a run (review: nit). The QR sum over a run equals the exact log-volume change plus `Σ r`, and every `r` is integration error of local order at least 5. **The D-008 gate is (b) in `(θ, ω)` together with (a) on the `(θ, ω)` pendulum runs of D-082.** It is a gate of milestone 5, as the owner instructed.
 - **Negative controls, run through the same measurement (D-058).**
   - D-008 with `ℓ = 0`, and with the reciprocal `ln det M(θ_{n+1}) − ln det M(θ_n)`: the residual is `O(dt)` and the slope is about 1.
   - Lorenz with `β` changed by 1 percent in the field but not in `ℓ`: the slope is about 1.
-  - Each control must fail. The uncommitted lab confirms this before the freeze. If a control does not fail, it is reported and nothing is tuned.
+  - Each control must fail. The uncommitted lab confirms this on lab streams before the freeze (D-083). If a control does not fail, it is reported to the owner, the control is kept as a finding, and nothing is tuned (one rule for every control; review: Rec).
 - **Reported, not gated (the script).** For every pendulum `(θ, ω)` run, the script prints the QR sum `Σλᵢ(T)` against `(1/T) ln[det M(θ₀)/det M(θ_T)]` at checkpoints, and the total `Σ r`. That shows the sum converging to 0 inside the envelope `ln(1 + m₂/m₁)/T` of the walkthrough, which is the plan's "explicitly demonstrate exponent-sum convergence". The script prints the same for `(q, p)` (0) and Lorenz (`−41/3`).
+- **Alternatives (review: Rec):** a tolerance on the whole-run sum, such as `|Σλ(T) − exact| ≤` a ceiling. That needs an absolute number for the accumulated integration error, which only a run could supply. DOP853 at tight tolerance with a fixed ceiling has the same problem.
 - **Why:** the reference is exact and the tolerance comes from the method's order. Nothing is fitted.
 
-### D-080 Linear system and harmonic oscillator: exact references and an a-priori finite-time bound
+### D-080 Linear system and harmonic oscillator: exact references and an a-priori finite-time bound (review: AMEND)
 - **Systems** (in `tests/lyapunov_checks.py`):
   - **L4**, `ẏ = A y` with `A = V D V⁻¹`, `D = blockdiag(0.5, [[−0.2, 1.0], [−1.0, −0.2]], −1.0)` and `V = [[1, 0.5, 0, 0], [0, 1, 0.5, 0], [0, 0, 1, 0.5], [0.5, 0, 0, 1]]`. `V` is circulant with eigenvalues `1.5`, `1 ± 0.5i` and `0.5`, so it is invertible and not orthogonal, and `A` is non-normal. The continuous exponents are `(0.5, −0.2, −0.2, −1.0)`. The complex pair checks the case of equal exponents.
   - **HO**, `ẋ = v`, `v̇ = −Ω² x` with `Ω = 2` (the D-044 problem). `A = S B S⁻¹` with `S = diag(1, Ω)` and `B = [[0, Ω], [−Ω, 0]]`, and the exponents are `(0, 0)`.
 
-  A triangular `A` or `frame0 = I` would keep `Q = I` and test nothing (the advisor's point). So the frames are random: the `Q` of a Gaussian matrix, from stream 4000 for L4 and stream 4001 for HO.
+  **Initial states (review: R3):** `state0 = 0` for L4, for both estimators. With `λ₁ = 0.5` and `T = 1000`, a nonzero state grows to about `e^500`, and adding `d0 = 1e-9` would lose the perturbation. `state0 = (1, 0.5)` for HO, which is bounded. A triangular `A` or `frame0 = I` would keep `Q = I` and test nothing. So the frames are random: the `Q` of a Gaussian matrix, from stream 4000 for L4 and stream 4001 for HO.
 - **References are those of the RK4 map, in closed form.** For the map `y ↦ R(dt A) y`, with `R(z) = 1 + z + z²/2 + z³/6 + z⁴/24`, the exponents are exactly `(1/dt) ln|R(dt μᵢ)|`, with the same eigenvector matrix. The test writes `R` and the `μᵢ` itself; it does not take them from the code under test. For HO, `|R(iy)|² = 1 − y⁶/72 + y⁸/576 < 1`, so the RK4 references are slightly negative, not 0. The note says so, and states their size, which is computed from the formula and not measured.
 - **The a-priori finite-time bound, which the owner derives in the note.** Let `S_k(T)` be the sum of the first `k` estimates, `S_k` its reference, and `γ_k = |det((V⁻¹ frame0)[:k, :k])|`, using the real block form and with `V` scaled to unit columns. My derivation is `T · |S_k(T) − S_k| ≤ k ln κ₂(V) + |ln γ_k|`, for any `k` that does not split the rotation block. It comes from bounding the growth of a `k`-volume above and below by the norms of `∧ᵏV` and `∧ᵏV⁻¹`. For HO the whole space is one block of a scaled rotation, so for `k = 1` the bound is `ln κ₂(S) = ln Ω`.
 
@@ -1239,14 +1243,16 @@ These test the exact sums at every `T`, "up to integration error", **without a t
 - **Gates**, with `dt = 0.01`, `T = 1000` and no transient, because the bound holds from `t = 0`:
   - L4: `S₁`, `S₃` and `S₄` each within the bound. `S₂` splits the rotation block and is not gated.
   - HO: `S₁` within `ln Ω / T`.
-  - The full sums (`S₄` for L4, `S₂` for HO) by the identity (a) of D-079. In addition, the RK4 references there are exact per step (`det R(dt A) = Π R(dt μᵢ)`), so they get the IDENTITY class as well.
+  - The full sums (`S₄` for L4, `S₂` for HO) by the identity (a) of D-079, with its rounding bound (review: R1). In addition, the RK4 references there are exact per step (`det R(dt A) = Π R(dt μᵢ)`), so they are compared with the same bound. The RK4-map references differ from the plan's "real parts of the eigenvalues" by `O(h⁴)`, so the plan's statement is met (review: nit).
   - Benettin, with `direction0` the first column of the frame and `angle_mask` all false: within the `k = 1` bound on both systems. The flow is linear, so `d0` and the renormalization drop out up to rounding.
 - **Controls:**
   - L4 with the real eigenvalue `0.5` replaced by `0.6` in the field, against the declared references: `S₁` is off by about 0.1, far above the bound;
   - QR with the re-orthonormalization disabled on L4: `S₃` fails or is not finite. A non-finite value fails `check_close` (D-031).
+- **The reviewer re-derived the bound** (Cauchy–Binet for the lower bound; norms of exterior powers for the upper bound). It holds for `S₁`, `S₃` and `S₄` of L4, given unit columns in real block form, moduli ordered under RK4, and no split of the block, and it does not depend on the cadence. For HO with `k = 1`, `ln Ω` holds by the scaled-rotation argument. The owner's derivation in the note is still required (Q3).
+- **Alternatives (review: Rec):** the continuous `Re μ` as the reference, with an `O(h⁴)` allowance; diagonal `A`, which is trivially exact.
 - **Why:** the reference is exact for the discrete map, the tolerance is a theorem, and the tests are cheap.
 
-### D-081 Lorenz: the published reference and its finite-time error bars
+### D-081 Lorenz: the published reference and its finite-time error bars (review: APPROVE)
 - **Parameters:** `σ = 10`, `ρ = 28`, `β = 8/3`. **D-009's assumption is confirmed:** these are the parameters of the reference below.
 - **Reference (literature).** D. Viswanath, *Lyapunov exponents from random Fibonacci sequences to the Lorenz equations*, PhD thesis, Cornell University, 1998, chapter 5, Table 5.1: `γ₁ = 0.90566`, `γ₂ = 0`, `γ₃ = −14.57233`, with **maximum error `0.00007`**. The method is RK4 with step `1/128`, integrated to `T = 10⁷` (Table 5.2(c)). The value was read on 2026-10-16 from the text of the thesis PDF on Cornell's eCommons. Chapter 5 is "adapted from" a paper of Viswanath's that I have not read, so the thesis is the source cited (brief §10).
 - **Tolerance (literature finite-time error bars).** Viswanath's Table 5.2(c) gives, for one trajectory with RK4 at `h = 1/128`, the estimate `(min + max)/2 ± (max − min)` over `[T/2, T]`:
@@ -1267,43 +1273,47 @@ These test the exact sums at every `T`, "up to integration error", **without a t
   - Benettin without renormalization (one interval over the whole run): `λ̂₁` falls far below the band, because the separation saturates.
   - QR with re-orthonormalization disabled: `λ̂₂` fails, or the run is not finite.
 - **Alternatives considered:** an ensemble gate `|mean − ref| ≤ t-quantile · SE`. I didn't take it because it rests on our run's spread, while the owner asked for literature bars. `T = 10⁵` with the `±0.001` bar would be ten times the cost. Both are kept as options for the owner.
-- **Known limit:** the `±0.003` is Viswanath's convention for a single trajectory (a min–max range over `[T/2, T]`), not a confidence interval. Fluctuations at `T = 10⁴` are about `10⁻³` (his section 5.3), so a correct run should be about 3 of those fluctuations inside the bar. A failure is reported, never answered by a longer run chosen afterwards.
+- **Known limit:** the `±0.003` is Viswanath's convention for a single trajectory (a min–max range over `[T/2, T]`), not a confidence interval. Fluctuations at `T = 10⁴` are about `10⁻³` (his section 5.3), so a correct run should be about 3 of those fluctuations inside the bar. A failure is reported, never answered by a longer run chosen afterwards. **False-fail risk (review: Rec):** under a Gaussian reading of a typical error of `10⁻³`, the bar is 3 standard deviations, so a correct run fails for one initial condition with a probability of about 0.3 percent, and at least one of the 4 fails with about 1 percent. This is a reading, not a theorem. Q4 carries it.
 
-### D-082 The pendulum: estimator agreement by construction, and what is reported
+### D-082 The pendulum: estimator agreement by construction, and what is reported (review: AMEND)
 - **Coordinates.** QR runs on `canonical_vector_field` in `(q, p)` with the full frame (`k = 4`), as D-008 requires. **Benettin also runs in `(q, p)`**, with the norm `‖(wrap(Δq), Δp)‖₂` and `direction0` equal to the first column of the QR frame. A third run, QR in `(θ, ω)` with `k = 4`, is the D-008 diagnostic (D-079).
 - **Why the agreement can be deterministic.** In the Gram–Schmidt process, column 1 is only normalized, so `Σ ln R₁₁ = ln ‖DΦ_T q₁‖`, whatever the cadence. Benettin with the same starting direction, the same norm and the same step map computes the finite-difference version of the same quantity. The two therefore differ only by Benettin's finite `d0`:
   - rounding of the difference, about `ε_mach · ‖x‖_∞ / d0` relative per interval;
   - the nonlinear remainder, about `d0 · e^{λτ_B} · ‖D²f‖ / ‖Df‖`, which is negligible at `d0 = 1e-9` if `λ τ_B ≤ ln 10`.
 
   This holds in KAM islands as well, so the gate does not depend on whether a state is chaotic.
-- **Gate:** per state, `|λ̂_B − λ̂_{QR,1}| ≤ δ_BQ`, with **`δ_BQ = 10 · ε_mach · X / (d0 · τ_B)`**, where `X = max_t ‖x(t)‖_∞` along that run's reference trajectory and `ε_mach = 2⁻⁵²`. This is the worst-case rounding term, with no cancellation assumed, and the factor 10 of D-055. It is computed in the test from the run's own `X`, which is a bound evaluated from the run, not a fitted number.
+- **Gate:** per state, `|λ̂_B − λ̂_{QR,1}| ≤ δ_BQ`, over a common window (D-077). The first draft set **`δ_BQ = 10 · ε_mach · X / (d0 · τ_B)`**, where `X` is `max_abs_state` and `ε_mach = 2⁻⁵²`. **The review found that this is not a worst-case bound (R5).** Rounding of order `ε X` enters the difference at every step, not only at renormalization. The coherent worst case per interval is about `(ε X / d0) / (λ h)`, 100 to 140 times the renormalization term, which the factor 10 does not cover. Under that worst case, `δ_BQ` is about `6e-4` for Lorenz, and of order 0.1 for rotating pendulum states (`X ≈ 10³`), which is vacuous. A random-rounding model gives about `(ε X / d0) / √(2λh)` per interval, averaged down by `√n_renorm`; that would be tight, but it is not a theorem. **The note derives both, and the owner chooses (Q7):** a worst-case bound, loose or vacuous on some states, or a probabilistic bound, labelled as such. The entry records the choice before the freeze. Either way, `δ_BQ` is evaluated from the run's own `X`, `τ_B` and `h`, and is not fitted.
 
   **A consequence of D-010, stated plainly:** unwrapped angles grow for rotating states (`|q|` can reach about `10³` by `T = 10³`), and the rounding of `x + d0 Δ̂` grows with them. That is why `X` enters the tolerance. The same gate applies to the Lorenz runs (D-081). **I'm not certain that the factor 10 also covers the rounding that accumulates over the `steps_per_renorm` steps inside an interval and is amplified by up to `e^{λ τ_B} ≤ 10`.** The note must bound that term too, and the owner checks it. If the derivation needs a larger factor, it is changed under review before the freeze, never after a run.
 - **Ensemble:** 8 chaotic-ish rest states by the recipe of D-046(a) (stream 4004; `E > 0`, `ω = 0`), with frames from stream 4005, `dt = 0.01` (`AGREE_DT`), `d0 = 1e-9` (the brief) and `T = 1000` after the transient.
 - **Reported by the script, not gated:**
   - `λ̂₁` to `λ̂₄` per state and their running estimates;
   - the pairing sums `λ̂₁ + λ̂₄` and `λ̂₂ + λ̂₃`, also multiplied by `T`;
-  - the D-008 comparison of D-079.
+  - the D-008 comparison of D-079;
+  - `δ_BQ` per state next to `|λ̂_{QR,1}|` (review: Rec). The note says the gate has no power on a state where `δ_BQ ≥ |λ̂_{QR,1}|`. `τ_B` is a value the lab sets, and it moves `δ_BQ` by `1/τ_B`.
 
-  Exactly one equation ties these numbers: since the sum identity holds, `λ̂₁ + λ̂₄ = −(λ̂₂ + λ̂₃)`.
+  Exactly one equation ties these numbers: since the sum identity holds, `λ̂₁ + λ̂₄ = −(λ̂₂ + λ̂₃)`, up to `Σ r`. RK4 is not symplectic, so pairing and the zero sum hold only up to `Σ r`, even as `T` grows (review: nit).
 - **Pairing and the zero exponents: for the owner (Q1).** QR on a nonlinear symplectic flow has no a-priori finite-`T` constant for `λ₁ + λ₄` or for `λ₂, λ₃ → 0`. An ensemble test of "consistent with zero" could fail on a deterministic `O(1/T)` bias (rest states are not stationary starts) rather than on noise. **Recommendation:** document only, as the plan says ("document convergence of pairing and zero sum"). The exact sum is gated by D-079; the pairing and the zero exponents are reported. The alternative is an ensemble test against zero after the transient, with a declared false-fail rate and a cap on the standard error.
-- **Control:** QR on the `(θ, ω)` field compared with Benettin in `(q, p)`, starting from the image of the same direction, must exceed `δ_BQ` on at least one state. This shows that the gate can tell a coordinate mismatch apart. The lab confirms it; if it does not fail, it is reported and dropped, not tuned.
+- **Control:** QR on the `(θ, ω)` field compared with Benettin in `(q, p)`, starting from the image of the same direction, must exceed `δ_BQ` on at least one state. This shows that the gate can tell a coordinate mismatch apart. The lab confirms it on lab streams. If it does not fail, it is reported to the owner, the control is kept as a finding, and nothing is tuned (the rule of D-079).
 - **Alternatives:** Benettin in `(θ, ω)` (the brief's state). Comparing it with QR in `(q, p)` brings in a state-dependent coordinate term of order `1/T`, which would force a statistical tolerance. It stays available for the figures of milestone 7.
 
-### D-083 What the calibration lab sets, and how
+### D-083 What the calibration lab sets, and how (review: AMEND)
 - **Only these, per system:** the Benettin interval `τ_B`, the QR cadence `τ_Q`, and the transient `t_trans` (as `steps_per_renorm`, `steps_per_qr` and `n_transient`). The lab may also **measure** the per-test runtimes, so that the timeouts can be declared (D-084). Linear and HO need no transient (D-080).
 - **Rules, declared now:**
   - **`τ_B`:** the largest multiple of `dt` with `λ̂₁ τ_B ≤ ln 10`, so that the separation stays below `10 d0`.
-  - **`τ_Q`:** the largest multiple of `dt` with `(λ̂₁ − λ̂_n) τ_Q ≤ ln 10⁸`, so that the frame keeps at least eight digits of its weakest direction.
+  - **`τ_Q` (review: R1):** the largest multiple of `dt` for which the measured within-interval conditioning `max_j ln(R₁₁/R_nn)` on the lab states is at most `ln 10³`. This is measured, not taken from `λ̂` alone, because local stretching can exceed `λ`. It keeps the rounding bound of D-079(a) small. The first draft's rule, `ln 10⁸`, conflicted with that tolerance.
+  - **Common window (review: R4):** `t_trans` and `T` must be common multiples of `τ_B` and `τ_Q` for each system where the two estimators are compared. The lab rounds `t_trans` up to satisfy this, and `T` is fixed a priori (D-084), so `τ_B` and `τ_Q` must divide it.
   - In both rules, `λ̂` is a rough lab estimate, used only to place these values. For Lorenz, the published `λ₁` and `λ₃` replace the lab estimate, since they are known.
-  - **`t_trans`:** the smallest of `{10, 30, 100, 300, 1000}` time units after which, on the lab states, every running `λ̂₁` (Benettin and QR) stays within half the D-081 tolerance of its own final value (Lorenz), or within 10 percent of its final value (pendulum).
+  - **`t_trans` (Lorenz only):** the smallest of `{10, 30, 100, 300, 1000}` time units after which, on the lab states, every running `λ̂₁` (Benettin and QR) stays within half the D-081 tolerance of its own final value.
+  - **Pendulum `t_trans`, declared a priori: 100 time units (review: Rec).** No pendulum gate depends on it: (a), (b) and the agreement hold for any transient. The first draft's 10-percent criterion was undefined for regular lab states, whose final `λ̂` is about 0.
 - **Lab streams:** `np.random.default_rng([4545, k])`. The first element `4545` has not been used before and is never a gate stream. The lab is uncommitted, its numbers are labelled "uncommitted lab", and its scratch folder is deleted with the owner's agreement (D-038).
-- **The lab never looks at a gate stream (4000 to 4007), never computes a gate statistic against a reference, and sets no tolerance.** The values and the lab's evidence go into one new log entry, reviewed, before any gate test runs.
-- **Why these three are safe to calibrate:**
-  - The identity gates (D-079) and the agreement gate (D-082) hold for any `τ_Q` and any transient. `δ_BQ` scales with `1/τ_B` by its own formula.
+- **The lab uses lab streams only and never looks at a gate stream (4000 to 4007).** On lab states it computes the values it sets, the runtimes, and the statistics of the **controls**, which must fail. It never computes the statistic of a correct estimator against a reference, and it sets no tolerance (reconciled with the controls of D-079, D-080 and D-082; review: Rec). A feasibility check of the gates on lab streams, which reports only and can change nothing, is not done unless the owner asks for it (Q8). The values and the lab's evidence go into one new log entry, reviewed, before any gate test runs.
+- **Why these are safe to calibrate:**
+  - In theory, the identity gates (D-079) and the agreement gate (D-082) hold for any `τ_Q` and any transient. **Numerically they do not:** the rounding bound of (a) grows with the within-interval conditioning, which is why `τ_Q` is set by the measured conditioning rule (review: R1). `δ_BQ` scales with `1/τ_B` by its own formula.
   - Only the Lorenz literature gates depend on `t_trans`, and they compare with an external number.
+- **Alternatives (review: Rec):** all values a priori, with no lab, risking a cadence that overflows or a transient that is too short; a lab free to set tolerances, which the owner ruled out.
 
-### D-084 Seeds, values declared a priori, tiers, timeouts and the register
+### D-084 Seeds, values declared a priori, tiers, timeouts and the register (review: APPROVE)
 - **Streams** (`np.random.default_rng([CASES_SEED, stream])`, `CASES_SEED = 20261010`, disjoint from 0 to 19, 1000, 2000 to 2003 and 3000 to 3006):
 
   | Stream | Use |
@@ -1317,28 +1327,31 @@ These test the exact sums at every `T`, "up to integration error", **without a t
   | 4006 | pendulum per-step states (8) |
   | 4007 | Lorenz per-step points (8) |
 
-  A frame is the `Q` of `jnp.linalg.qr` of `rng.standard_normal((n, n))`, with each column's sign set so that `diag(R) > 0`, which makes the frame unique.
+  A frame is the `Q` of `np.linalg.qr` of `rng.standard_normal((n, n))` (NumPy, like every case recipe, D-031; review: nit), with each column's sign set so that `diag(R) > 0`, which makes the frame unique.
 - **Values declared a priori, outside the lab's list; each is listed for the owner's approval with its basis:**
 
   | Value | Basis |
   |---|---|
   | `d0 = 1e-9` | the brief |
   | `dt = 0.01` (pendulum, L4, HO) | `AGREE_DT` |
+  | pendulum `t_trans = 100`; L4 `state0 = 0`; HO `state0 = (1, 0.5)` | D-083, D-080 |
   | `dt = 1/128` (Lorenz) | Viswanath |
   | `T = 1000` (pendulum, L4, HO) | cost |
   | `T = 10⁴` (Lorenz) | the literature bar |
   | 4 Lorenz and 8 pendulum states | cost |
-  | slope `≥ 4.8` and the two `dt` grids | D-079 |
+  | slope `≥ 4.0`, the sign rule and the two `dt` grids | D-079 |
   | validity floor `1e3 · ε_mach` | D-079 |
   | Lorenz tolerances `0.003 + 0.00007` and `1e-3` | D-081 |
   | the `k`-volume bound | D-080 |
-  | `δ_BQ` and its factor 10 | D-082 |
+  | `δ_BQ` (worst case or probabilistic, Q7) and the constant `c` of the bound of (a) | D-082, D-079 |
   | the L4 matrices and `Ω = 2` | D-080 |
 - **Register:** every value above, and the lab's values once logged, goes into a milestone 5 section of `src/horizon/tolerances.py`, pinned by K1 in `tests/test_lyapunov_register.py`. The recipe checks C cover the streams and frames. The helpers and the script define no number of their own (D-052).
 - **Tiers:** the fast tier has no headroom (29.77 s median against 30 s). So **every new milestone 5 test is full** and is named in `FULL_FUNCTIONS` with its pinned count, and no reduced fast version is planned. The fast tier is a smoke tier and never a gate, and the milestone 5 claims rest on the full tier. `tests/tiers.py` and `tests/test_tiers.py` change accordingly.
-- **Timeouts:** the default 60 s is kept wherever the lab's laptop timing is at most 15 s, which leaves room for the runner being up to 3.4 times slower. Any test above that gets a `@pytest.mark.timeout(N)` declared in the lab entry before it runs (D-036). The Lorenz runs are the expected case: about `1.4 × 10⁶` RK4 steps each, with three tangent columns.
+- **Timeouts:** the default 60 s is kept wherever the lab's laptop timing, on lab streams at the gate sizes, is at most 15 s, which leaves room for the runner being up to 3.4 times slower. The full job runs under xdist, which slows every test, so after the first CI run the worst fraction of each timeout is logged (D-059, D-071; review: Rec). Any test above that gets a `@pytest.mark.timeout(N)` declared in the lab entry before it runs (D-036). The Lorenz runs are the expected case: about `1.4 × 10⁶` RK4 steps each, with three tangent columns.
 - **The milestone 5 gate (the plan):** the committed script, run from a clean tree, prints every gate statistic inside its declared bound with the git SHA. Linux CI is green, the results entry pastes the printout unedited, and the reviewer's diff review ends in `APPROVED FOR MERGE`. Then come the three interview questions of brief §7, without answers.
 - **Not in milestone 5:** energy bands, FTLE distributions, the regular/chaotic classification and any threshold on them (milestone 6, D-011).
+- **Alternatives (review: Rec):** reduced fast versions of the gates, which have no budget; reusing earlier streams, which would couple the milestones.
+- **Why:** new streams keep the gates independent, the register makes every value auditable, and the full tier is where the claims rest.
 
 ### Questions for the owner (milestone 5 design)
 - **Q1, pendulum pairing and zero exponents (D-082):** document only (recommended), or an ensemble gate?
@@ -1346,3 +1359,6 @@ These test the exact sums at every `T`, "up to integration error", **without a t
 - **Q3, the finite-time bound of D-080:** to be derived and verified by you in the note before the register is frozen. I'm not certain of the constant.
 - **Q4, the Lorenz averaging time (D-081):** `T = 10⁴` with Viswanath's `±0.003` (recommended), or `T = 10⁵` with `±0.001` at ten times the cost.
 - **Q5, Benettin in `(q, p)` (D-082):** approve, given that the brief states the Benettin perturbation in `(θ, ω)` terms.
+- **Q6, the slope threshold of D-079(b) (review: R2):** 4.0 (recommended; the separation of orders 5 and 2), or another value between 2 and 5.
+- **Q7, `δ_BQ` (review: R5):** a worst-case bound (loose, vacuous on rotating pendulum states) or a probabilistic bound labelled as such, after the note derives both.
+- **Q8, a lab feasibility check (review: Rec):** may the lab run the gate statistics on lab streams, reporting only and with no power to change any value? The default is no.
