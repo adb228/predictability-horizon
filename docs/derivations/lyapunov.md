@@ -114,6 +114,8 @@ So, in this model, the band where correct code does not pass is about `|b| h_max
    - The cost is that a defect present at only a few states, with the others correct, could be masked. A wrong `ℓ` formula does not behave that way.
    - Per-state slopes and signs are then reported, not gated.
 
+**The owner's choice (D-086, 2026-10-17): option 4, for all three systems.** The negative controls of D-079 must still fail under the aggregate rule.
+
 ## 5. `δ_BQ`: the worst-case and the probabilistic forms (D-082, Q7; agent, for the owner to verify)
 
 Benettin's separation over an interval of `N_B` steps obeys `δ_{m+1} = J_m δ_m + e_m + O(d0²)`. Here `e_m` is the rounding injected at step `m`. The two trajectories are each rounded at a size of order `ε X`, `X = max_abs_state`, so their difference carries at most `|e_m| ≤ s ε X`. The renormalization `x̃ ← x + (d0/d) Δ` injects one more `ε X`.
