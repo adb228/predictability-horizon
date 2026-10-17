@@ -30,7 +30,7 @@ uv run --locked ruff check . && uv run --locked ruff format --check .
 
 ## Permissions (D-072, D-073, D-075)
 - **Without asking:** tests, Ruff, branch commits and pushes (`git push origin <branch>`), draft PRs, docs-only pushes to `main`, and merging when CI is green and the reviewer has approved, then deleting the branch. The settings cannot test those conditions, so the common spellings of a push to `main`, `git merge` and tags prompt; other spellings do not, and the instruction is the guard.
-- **Ask first:** CI or workflow changes, gate or tolerance changes (edits to the frozen gate files prompt; verified for `tolerances.py` in D-086), anything account-level.
+- **Ask first:** CI or workflow changes, gate or tolerance changes (edits to the frozen gate files are meant to prompt; consistent for `tolerances.py` only, D-086), anything account-level.
 - **Never:** force-push. There is no GitHub ruleset (D-075): the guards are the instructions in this file, and the deny list in `.claude/settings.json` is a backstop that does not catch every spelling.
 
 Milestone 5 (Lyapunov estimators) starts with the math walkthrough; see the end of the handoff in `PROGRESS.md`.

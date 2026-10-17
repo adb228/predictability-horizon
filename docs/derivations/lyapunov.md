@@ -109,7 +109,7 @@ So, in this model, the band where correct code does not pass is about `|b| h_max
 2. **Symbolic analysis before the freeze.** Compute `a(x) / b(x)` from the elementary differentials of order 5 and 6 over the whole sampling box, never at a gate state. If the band is not empty, the owner decides between a new a-priori grid and option 1. Mapping the band densely comes close to the spirit of the Q8 refusal, and the owner should weigh that.
 3. **A slope over the three finer points only.** This is less exposed at the coarse end, but it has less leverage against the floor.
 4. **An aggregate statistic** (agent's recommendation for `(q, p)`; for Lorenz and `(θ, ω)` as well, if the owner prefers one rule). Fit the slope of `log max_states |r(h)|`, the largest `|r|` over the 8 states at each `h`, and keep the floor on that maximum.
-   - The maximum is set by the states without a near-cancellation, so it scales like `hᵖ` unless every state cancels at once.
+   - The maximum is set by the states without a near-cancellation, so it scales like `hᵖ` unless the states that set the maximum themselves near-cancel (not proved; see D-086 for a two-term example at the threshold).
    - A wrong formula leaves an `O(h)` residual at every state, so the aggregate slope stays near 1 and the gate still fails. The controls of D-079 test exactly that.
    - The cost is that a defect present at only a few states, with the others correct, could be masked. A wrong `ℓ` formula does not behave that way.
    - Per-state slopes and signs are then reported, not gated.
