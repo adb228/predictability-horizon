@@ -1375,3 +1375,47 @@ These test the exact sums at every `T`, "up to integration error", **without a t
   - **Probabilistic:** the bound is tight, and the note states its false-fail rate under the rounding model, which is a model and not a theorem.
   - **Either way:** `δ_BQ` grows with the run's own `X`, so a defect that inflates the state, such as a runaway trajectory, loosens its own tolerance. The confirmation reviewer named this but did not pursue it. A remedy, such as a cap on `X` declared a priori in the style of `κ_cap`, can be added at your request.
 - **Q8, a lab feasibility check (review: Rec):** may the lab run the gate statistics on lab streams, reporting only and with no power to change any value? The default is no.
+
+## Milestone 5: the owner's answers to the design questions (2026-10-16)
+
+### D-085 Answers to Q1 to Q8, the owner's derivation for D-080, the cap on `X`, and the owed derivations (Owner)
+The design of D-076 to D-084 was approved by the reviewer on head `c965f08` (DESIGN APPROVED, a fifth fresh reviewer, after four rounds of amendments recorded in the section's preamble). The owner then answered the eight questions. This entry records the answers, and the changes they make, before anything is pushed or implemented. The derivations that were owed before the freeze are in `docs/derivations/lyapunov.md`, sections 1 to 7. A fresh reviewer confirms this entry and the note. The owner's instruction is that there is **no further full design round**, and that the agent stops after the confirming review.
+- **Q1, pairing and the zero exponents:** document only. The exponent sum is gated exactly by D-079. A gate on pairing or on the zero exponents would need a tolerance taken from the spread of our own runs, which instruction (1) forbids.
+- **Q2, the a-priori values of D-084:** approved as listed.
+- **Q3, the finite-time bound of D-080: derived by the owner.**
+  - The owner's derivation, for the leading exponent, is `|λ(T) − a₁| ≤ [ln κ(V) + ln(‖c‖/|c₁|)] / T`, with `c = V⁻¹ v₀`. Ties in the leading modulus use the norm of the tied group's component. A Jordan block would change the form, and L4 is diagonalizable.
+  - The agent checked it, including `κ(V) = 2` for HO. The agent's extension to the partial sums, `|S_k(T) − S_k| ≤ [k ln κ(V) + ln(vol_k(C) / |det C_K|)] / T` with `C = V⁻¹ frame0[:, :k]`, is in the note, section 1.2, for the owner to verify.
+  - **This form replaces the form in D-080** (`k ln κ₂(V) + |ln γ_k|`, in the real block form). In the complex eigenbasis it holds whether or not `k` splits a complex pair, and it reduces to the owner's bound at `k = 1`. D-080's gate set is unchanged: `S₁`, `S₃` and `S₄` of L4, `S₁` of HO, and Benettin.
+- **Q4, the Lorenz averaging time:** `T = 10⁴` with `±0.003`. It is the shortest run whose tolerance is still tight enough to catch an estimator bug, and ten times the cost would not change the conclusion.
+- **Q5, Benettin in `(q, p)`:** approved. **This changes the brief's wording.** The brief (section 3, Stage 1, Method A) describes the two-trajectory method on the state `(θ1, θ2, ω1, ω2)`. Milestone 5 runs it in canonical `(q, p)`, with the norm `‖(wrap(Δq), Δp)‖₂`. The exponents are the same in either coordinate system as `T → ∞`. With the same coordinates, starting direction, norm and step map, the two methods agree by construction, so any disagreement is a bug, not noise (D-082). The brief is not edited; this entry records the change. Benettin in `(θ, ω)` stays available for the figures of milestone 7.
+- **Q6, the slope threshold of D-079(b):** **4.0, conditional on the two owed derivations coming back clean.** They are sections 3 and 4 of the note.
+  - **Section 3 (the leading order in `(q, p)`):** settled by the rule declared in D-079. `r` is `O(h⁶)` for linear Hamiltonian flows and generically `O(h⁵)` otherwise, and the size of the `h⁵` coefficient at the gate states cannot be bounded on paper. **So a separate `(q, p)` grid is declared a priori: `h ∈ {0.16, 0.08, 0.04, 0.02}`**, which keeps `|r|` about 58 times above the floor even at `O(h⁶)`. The `(θ, ω)` and Lorenz grids are unchanged.
+  - **Section 4 (the slope near a cancellation): not clean.** A correct implementation fails at a state where the leading coefficient nearly cancels (`ρ h_max < −0.5`). The chance of that cannot be bounded on paper without evaluating the coefficient at the gate states. **The condition of Q6 is therefore not met for this derivation, and the owner decides** (D-085 question A below).
+- **Q7, `δ_BQ`: the worst-case bound is the gate, and the probabilistic form is reported only.**
+  - From the note, section 5: `δ_BQ^wc = s ε X / (d0 h)` with `s = 5`, which depends on neither `λ` nor `τ_B`, and `δ_BQ^pr = 5 · δ_BQ^wc / √N_total` (reported).
+  - **Where the gate has little power, stated plainly:**
+    - On rotating pendulum states, `δ_BQ^wc` is about 0.1 to 0.7, comparable to or larger than `λ₁`, so the gate cannot tell a correct estimator from a wrong one there.
+    - On Lorenz, it is about `1.1e-2` at the trapping-ball `X`, about 1 percent of `λ₁`. That catches any factor or sign error; smaller biases are the job of the literature gate of D-081. **The `6e-4` quoted in D-082 used the aligned form, which is not a worst case; the worst-case figure is about 20 times larger.**
+    - On non-rotating pendulum states, it is about `3.5e-4`.
+
+    The script marks every state where `δ_BQ^wc > 0.1 |λ̂_{QR,1}|` as "low power". That is a mark, not a gate.
+  - The worst case rests on one assumption that is not proved: that injected rounding is amplified no more than the separation over an interval (note, section 5).
+- **Q7 follow-up, a cap on `X`: added.** Above `X_cap`, the agreement gate **fails as inconclusive**. The caps come from the physics and the declared values (note, section 6):
+  - pendulum, per state, from energy conservation: `X_cap = max(|q(0)|_∞ + 1100 · ω_max, p_max)`, with `K_max = E(0) + 1.01 E_s` and the mass-matrix eigenvalue bounds (about `6.6 · 10³` for a rest state with `E(0) ≤ 3`);
+  - Lorenz, from the trapping ball of `V = x² + y² + (z − σ − ρ)²` with `R = β(σ+ρ)/(2√(β−1)) ≈ 39.25`: `X_cap = 1.01 · (σ + ρ + R) ≈ 78.0`;
+  - L4: `X = 0`;
+  - HO: `X_cap ≈ 2.06`.
+- **Q8, a lab feasibility check:** no. Running the gate statistics early on lab data and adjusting the design on what is seen would be fitting to our own runs through a side door. A gate that fails after the freeze is reported as a finding.
+- **The constant of D-079(a):** `c = 100` (note, section 2), so the tolerance is `100 · ε · steps_per_qr · n · κ_j` per interval, at most about `1.1e-8` at the declared sizes. It is an allowance over Higham's backward-error constants for `n ≤ 4`, not a proved constant. It also assumes that the intermediate frames within an interval are no worse conditioned than `κ_j`, which is not proved.
+- **Nit left over from the last design review:** in D-083, `M = V E V⁻¹` is the one-interval propagator and `E = e^{D τ_Q}` (here the exact flow; the RK4 map differs by `O(h⁴)`).
+- **New values for the register**, in addition to D-084's table:
+  - the `(q, p)` grid;
+  - `c = 100`;
+  - `s = 5`;
+  - `z = 5` (report only);
+  - the `X_cap` formulas and their margins (`0.01 E_s`, the factor `1.01`);
+  - the "low power" mark at `0.1 |λ̂|` (report only).
+- **Questions for the owner (new):**
+  - **A, the slope near a cancellation (note, section 4).** Option 1: accept the residual false-fail risk, so that a failure at such a state is reported as a finding. Option 2: before the freeze, run a symbolic analysis of the ratio of the order-6 to the order-5 coefficient over the whole sampling box, without evaluating any gate state.
+  - **B, the extension to `S_k` (note, section 1.2), the constant `c` and its assumption (section 2), and the worst-case assumption of `δ_BQ` (section 5):** the owner verifies these before the freeze.
+- **Next free number:** D-086.
