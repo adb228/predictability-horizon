@@ -1509,3 +1509,98 @@ The owner's decisions:
     - the runtimes.
   - The timing runs discard every result and call no `check_*`. Each gate test's configuration is timed cold, as the first test of a fresh process, compile included. L4 is timed on the stream-6 lab frame and HO on the identity frame (timing only).
 - **Next free number:** D-091.
+
+### D-091 The calibration lab: the four values, the controls and the runtimes (uncommitted lab; agent, 2026-10-19; for review before any gate test runs)
+Every number in this entry is **uncommitted lab**. The script (`lab.py`, in the session scratchpad) is not committed. It ran on a clean tree at `cc5311d`, on macOS with Python 3.12.11, jax 0.11.2 and numpy 2.5.3, on lab streams `default_rng([4545, k])` only, under D-083, D-087, D-088 and D-090. The gate-stream generator `lc._rng` was replaced with one that raises, and no run raised. No gate test has run, locally or in CI.
+
+**The values, each by its rule; the owner approves the register edit (D-084):**
+
+| Register name | Value | Rule and margin |
+|---|---|---|
+| `PENDULUM_STEPS_PER_QR` | `80` (`τ_Q = 0.8`) | The largest divisor of `10 000` with every `κ₂(R_j) ≤ 10³` over 8 lab states × `(q, p)` and `(θ, ω)` × 110 000 steps, no transient: max 694.8. The next divisor, 100, gives 2396. |
+| `PENDULUM_STEPS_PER_RENORM` | `400` (`τ_B = 4`) | The rough `λ̂₁` at `τ_Q = 80`, over the window after the 100-unit transient, per state: 0.3695, 0.3265, 0.3661, 0.3585, 0.4463, 0.4620, 0.3946, 0.4055. The max is 0.4620. The largest divisor of `10 000` with `0.4620 · τ_B ≤ ln 10` is 400 (`1.848`). The next divisor, 500, gives `2.310 > 2.3026`, **a narrow miss**. |
+| `LORENZ_STEPS_PER_QR` | `25` (`τ_Q = 0.1953`) | The largest evaluated divisor of `1 280 000` (up to 1280 steps) with every `κ₂(R_j) ≤ 10³` over 4 lab ICs: 926.8, **a margin of 1.08**. The next candidate, 32, gives 5822. The literal `[0, 1000 + T]` covering gives the same value (D-090). |
+| `LORENZ_TRANSIENT_STEPS` | `1600` (12.5 time units) | `t_trans = 10` under reading (b) (D-088), rounded up to a multiple of `lcm(320, 25) = 1600` (D-090). |
+
+**Lorenz `τ_Q`: max `κ₂(R_j)` over the 4 lab ICs, per candidate.** The own rounded run and the literal covering are equal for every candidate:
+
+| τ_Q (steps) | 1 | 2 | 4 | 5 | 8 | 10 | 16 | 20 | **25** | 32 | 40 | 50 | 64 | 80 | 100 | 125 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| max κ₂ | 1.345 | 1.808 | 3.238 | 4.312 | 9.991 | 17.25 | 85.40 | 245.6 | **926.8** | 5.822e3 | 4.547e4 | 5.932e5 | 1.819e7 | 1.291e9 | 1.769e11 | 1.638e13 |
+
+| τ_Q (steps) | 128 | 160 | 200 | 250 | 256 | 320 | 400 | 500 | 512 | 625 | 640 | 800 | 1000 | 1024 | 1250 | 1280 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| max κ₂ | 2.207e13 | 3.102e16 | 1.643e18 | 4.690e18 | 1.354e18 | 3.231e21 | 4.086e20 | 3.094e20 | 2.742e21 | 1.598e20 | 8.134e20 | 1.910e20 | 9.044e19 | 1.798e20 | 3.359e20 | 2.839e21 |
+
+Every candidate up to 25 passes and every larger one fails. Above about `10¹⁶` the values only say that `R_j` is numerically singular.
+
+**Pendulum `τ_Q`: max `κ₂(R_j)` over the 8 lab states.**
+
+| τ_Q (steps) | 1 | 2 | 4 | 5 | 8 | 10 | 16 | 20 | 25 | 40 | 50 | **80** | 100 | 125 | 200 | 250 | 400 | 500 | 625 | 1000 | 1250 | 2000 | 2500 | 5000 | 10000 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `(q, p)` | 1.344 | 1.794 | 3.048 | 3.907 | 7.007 | 9.824 | 19.09 | 24.20 | 28.44 | 102.6 | 201.6 | **694.8** | 2396 | 3697 | 6.964e4 | 5.560e5 | 8.387e7 | 4.838e8 | 1.534e10 | 1.131e12 | 6.822e13 | 1.197e15 | 1.479e16 | 6.011e18 | 2.795e18 |
+| `(θ, ω)` | 2.066 | 3.892 | 9.375 | 12.55 | 21.38 | 24.94 | 24.19 | 20.55 | 27.65 | 80.11 | 148.6 | **573.3** | 1159 | 3973 | 5.025e4 | 2.263e5 | 2.339e6 | 2.052e7 | 2.579e8 | 1.848e9 | 8.551e10 | 1.596e14 | 4.353e16 | 3.363e19 | 1.358e19 |
+
+**Lorenz `t_trans`, reading (b).** The rounded starts of the ladder `{10, 30, 100, 300, 1000}` are `{1600, 4800, 12800, 38400, 128000}` steps, each with a window of `1 280 000` steps. The table gives `est(t_c) − est(1000)`, the only quantity the rule uses (D-090), with the criterion `|·| ≤ 0.001535`:
+
+| Estimator, IC | 10 | 30 | 100 | 300 |
+|---|---|---|---|---|
+| QR 0 | +1.43e-4 | +4.31e-4 | +1.22e-4 | +5.52e-4 |
+| QR 1 | +5.16e-4 | +2.32e-4 | +4.92e-4 | +4.30e-4 |
+| QR 2 | +5.81e-5 | −2.00e-4 | −2.31e-4 | +5.58e-4 |
+| QR 3 | +2.37e-4 | −6.42e-5 | −7.35e-5 | −6.41e-5 |
+| Benettin 0 | +1.43e-4 | +4.31e-4 | +1.22e-4 | +5.52e-4 |
+| Benettin 1 | +5.16e-4 | +2.32e-4 | +4.92e-4 | +4.30e-4 |
+| Benettin 2 | +5.79e-5 | −2.00e-4 | −2.31e-4 | +5.58e-4 |
+| Benettin 3 | +2.37e-4 | −6.42e-5 | −7.36e-5 | −6.42e-5 |
+
+The largest absolute value is `5.58e-4`, so `t_trans = 10`, the first rung.
+
+**The controls (D-087), on lab states; each must fail, and the rule that failed is recorded:**
+- **Euler frame (D-079(a)), at the chosen `τ_Q` and transient:**
+  - Lorenz: fails on the bound on 4 of 4 ICs, worst ratio `2.7e10` to `2.8e10`, with max `κ₂` 1.04e3 to 1.30e3. That is above the `τ_Q` rule's `10³`, which governs correct runs, but below `κ_cap = 10⁴`, so the failure is on the bound, not the cap.
+  - Pendulum `(q, p)`: fails on the bound on 8 of 8 states, worst ratio `3.7e9` to `6.5e9`, max `κ₂` 74 to 739.
+- **Per-step (D-079(b), D-086):** every control fails on the slope against `4.0`, and none needed the floor (F4 of D-089):
+  - `ℓ = 0`: slope 0.964, `R(h_min) = 2.25e-2`;
+  - the reciprocal: slope 0.964, `4.50e-2`;
+  - Lorenz `β`: slope 1.000, `1.67e-5`;
+  - `(q, p)` damping: slope 1.435, `4.00e-4`. Its per-state slopes are 0.99 to 1.43.
+- **L4 (D-080), on the stream-6 frame:** the shifted eigenvalue gives an `S₁` error of 43.2 `B₁`; no re-orthonormalization gives an `S₃` error of 9.58e4 `B₃`. Both fail on the bound.
+- **Lorenz (D-081), 4 lab ICs:** without renormalization, the deviation is 294.2 times the bar on every IC; without re-orthonormalization, `λ₂` is not finite on every IC.
+- **Coordinate mismatch (D-082; Benettin alone, D-090):** the ratio `|λ_B − λ_(θ,ω)| / δ_BQ` per state is 0.798, 1.958, 1.324, 0.444, 1.345, 2.255, 0.142 and 2.861, with `X / X_cap` 0.013 to 0.043, so every state is within its cap. The max is 2.861 > 1, so the control fails, as it must.
+
+**Runtimes, cold**: one fresh process per configuration, compile included, laptop, gate sizes, lab states:
+- `lorenz_run` 1.17 s
+- the Lorenz Euler control 0.77 s
+- no renormalization 1.13 s
+- no re-orthonormalization 0.45 s
+- `pendulum_run` 1.76 s
+- `(θ, ω)` QR 0.86 s
+- the pendulum Euler control 1.06 s
+- **the coordinate-mismatch control, 8 + 8 runs, 10.08 s**
+- the per-step measurements 0.55 to 2.11 s
+- L4, HO and the L4 no-re-orthonormalization control 0.18 to 0.27 s
+
+All are at most 15 s, so under D-084 **no `@pytest.mark.timeout` is declared** and the default 60 s stands. The worst, 10.08 s, at the runner's observed 3.4 times is about 34 s, 57 percent of the timeout, before any xdist slowdown. After the first CI run, the worst fraction is logged (D-084).
+
+**Deviations, disclosed for the review:**
+1. **A Benettin–QR comparison was formed, by the agent, in the chat, not by the script.**
+   - Reporting the `t_trans` numbers to the owner, the agent compared the printed QR and Benettin rows by eye. It wrote that the two estimators "differ by at most about 1e-7". That is `(λ_B − λ_QR)(t_c) − (λ_B − λ_QR)(1000)`, a difference of two values of the agreement statistic of D-082, which D-090 does not allow.
+   - The rows themselves are allowed outputs. The script formed no Benettin–QR difference and printed no absolute estimate.
+   - The remark came after every value above was set by its rule. **No value was chosen, changed or re-run because of it**, and it is not a result.
+   - The owner asked for this disclosure.
+2. **The first timing run was invalid and was discarded.**
+   - `lc.Run` is a plain dataclass, not a JAX pytree, so `jax.block_until_ready` on it returned before the asynchronous work finished.
+   - The `run_both` configurations were under-timed: for example `lorenz_run` read 0.43 s, against 1.17 s once blocked.
+   - The lab script was corrected to block on the two results and the whole timing stage was re-run. The values above are from the re-run. No timing changes any value.
+3. **The two sweeps ran in parallel** (pendulum and Lorenz `τ_Q`). This affects their wall times only, which are not used. The controls and the timings each ran alone.
+4. The `t_trans` comparison with `0.001535` and the control comparisons with their bars, including the `no renormalization` deviation from `0.90566`, are the rules' own statistics as D-087 lists them. No statistic of a correct estimator was compared with a reference.
+
+**What follows, in order.**
+1. A fresh reviewer reviews this entry and the diff of D-089's fixes (`5164cf2..HEAD` over the three test files, `tolerances.py` and `.claude/settings.json`).
+2. On approval, the four values go into the register in `src/horizon/tolerances.py`, with the Edit tool and the owner's approval. They are pinned in K1.
+3. The register tests run. Then the gate tests run once, locally, and nothing is adjusted.
+4. Then the PR.
+
+The lab's scratch folder is deleted once this entry is pushed (D-088).
+- **Next free number:** D-092.
