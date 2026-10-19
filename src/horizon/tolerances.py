@@ -636,6 +636,25 @@ X_CAP_FACTOR: float = 1.01
 ``R = beta (sigma + rho) / (2 sqrt(beta - 1))``, a declared allowance for RK4 (D-085; note
 section 6). Above a cap the agreement gate fails as inconclusive."""
 
+# The calibration lab's values (D-083; set by the uncommitted lab of D-091, reviewed in D-092,
+# before any gate test ran). Each is a step count set by its rule on lab streams only.
+
+PENDULUM_STEPS_PER_QR: int = 80
+"""Pendulum ``tau_Q = 0.8``: the largest divisor of ``10 000`` steps with every
+``kappa_2(R_j) <= 10**3`` on the lab states, ``(q, p)`` and ``(theta, omega)`` (D-091)."""
+
+PENDULUM_STEPS_PER_RENORM: int = 400
+"""Pendulum ``tau_B = 4``: the largest divisor of ``10 000`` steps with
+``lambda_1 tau_B <= ln 10`` at the largest rough ``lambda_1`` of the lab states (D-091)."""
+
+LORENZ_STEPS_PER_QR: int = 25
+"""Lorenz ``tau_Q = 25 / 128``: the largest divisor of the window up to ``1280`` steps with
+every ``kappa_2(R_j) <= 10**3`` on the lab initial conditions (D-091)."""
+
+LORENZ_TRANSIENT_STEPS: int = 1600
+"""Lorenz transient, 12.5 time units: ``t_trans = 10`` by reading (b) of D-088, rounded up to
+a multiple of ``lcm(320, 25)`` (D-090, D-091)."""
+
 
 # --- The comparison rule --------------------------------------------------------------------
 

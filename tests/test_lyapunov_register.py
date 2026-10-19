@@ -72,6 +72,10 @@ def test_register_holds_the_declared_lyapunov_values() -> None:
     assert (tol.DELTA_BQ_S, tol.DELTA_BQ_Z, tol.LOW_POWER_FRACTION) == (5.0, 5.0, 0.1)
     assert (tol.X_CAP_ENERGY_ALLOWANCE, tol.X_CAP_FACTOR) == (0.01, 1.01)
 
+    # D-091, D-092: the calibration lab's values.
+    assert (tol.PENDULUM_STEPS_PER_QR, tol.PENDULUM_STEPS_PER_RENORM) == (80, 400)
+    assert (tol.LORENZ_STEPS_PER_QR, tol.LORENZ_TRANSIENT_STEPS) == (25, 1600)
+
 
 def test_register_streams_are_distinct_and_disjoint_from_the_earlier_ones() -> None:
     """K1 (class exact): streams 4000 to 4007 are distinct and reuse no earlier stream (D-084)."""
