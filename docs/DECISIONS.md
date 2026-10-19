@@ -1794,3 +1794,227 @@ PASSED tests/test_lyapunov_gates.py::test_agreement_control_qr_in_theta_omega_ex
 ============================= 68 passed in 24.84s ==============================
 ```
 - **Next free number:** D-094.
+
+### D-094 The milestone 5 script: its clean run, every gate inside its bound, and the timeout fractions of the first CI run (agent, 2026-10-19)
+At the owner's instruction of 2026-10-19: write `experiments/stage1/lyapunov_validation.py` (D-076, D-084), log its unedited printout and the timeout fractions of the first CI run (D-084) in one results entry, delete the lab folder, then the reviewer's diff review and the merge on `APPROVED FOR MERGE`.
+- **The script** (`b644557`) prints, under the provenance header, every gate statistic of D-079 to D-082 (D-085, D-086) next to its declared bound and its verdict, every negative control with the rule it fails on, and the report-only items of D-079, D-082, D-085 and D-086: `λ̂₁` to `λ̂₄` per pendulum state, the pairing sums and the same times `T`, the running `λ̂₁`, `δ_BQ` next to `|λ̂_QR,1|` with the "low power" mark, `δ_BQ^pr`, the per-state slopes and signs of D-086, and the exponent sums against the exact log-volume rate with the totals `Σ ln|R_ii| − exact` and `Σ r`, for `(θ, ω)` (with the envelope `ln(1 + m₂/m₁)/t`), `(q, p)` and Lorenz. It uses the runs, measurements and checks of `tests/lyapunov_checks.py` and the register; it writes no files, makes no figures and defines no threshold. A control that passes, or fails on another rule than its gate's, counts as a failure, and the exit status is 1 on any failure.
+- **Three things the reviewer should check:**
+  1. Two short computations of `tests/test_lyapunov_gates.py` are repeated in the script line for line, because the test module is not a library: the partial sum `S_k` and the full-sum ratio of D-080. The script also calls the private helper `lc._log_det_m` for the running D-008 reference, so that `ln det M` has one implementation. `tests/lyapunov_checks.py` is not changed.
+  2. **The checkpoints of the running sums are a display choice, not a register value:** the powers of ten up to `T` that fall on a QR boundary (`t = 100, 1000` for the pendulum, where `τ_Q = 0.8`; `t = 100, 1000, 10⁴` for Lorenz, where `τ_Q = 25/128`). D-079 says "at checkpoints" and the register has none. They judge nothing; if the owner wants them in the register, that is a new entry.
+  3. The controls are printed here, though the scripts of milestones 3 and 4 printed none, because D-079 to D-082 make each control part of its gate's evidence.
+- **The runs, all disclosed.** One trial run on a dirty tree (head `84057de`, the script uncommitted), whose output is not used. After it, only the width of the ratio column in section 5 and the form of the running-sum cells in section 6 changed (the value and its difference from the exact rate, instead of both values, which Lorenz printed as the same `−1.367e+01`); no statistic, check or value changed. Then **the run below, from the clean tree at `b644557`, exit status 0.** It agrees with the pytest run of D-093 on every gate, and every D-079(b) control fails on the slope, as the junit property `failed_rule` recorded there.
+- **What the printout shows, stated plainly (report only; nothing is adjusted):**
+  - The tightest gate ratios are HO `S_1` and HO Benettin at `0.933` of `ln κ(V)/T`, Lorenz initial condition 3 at `0.795` of the literature bar, and L4 `S_1` (and L4 Benettin) at `0.647` of `B₁`. The Lorenz floor margin of D-079(b) is `11.7` times, the smallest margin of a validity rule.
+  - Pendulum state 3 is the regular state (`λ̂₁ ≈ 0.0024`). It is the one state marked "low power", and its pairing sums are `±3.35e-5` (`±3.35e-2` times `T`), about a thousand times those of the chaotic states. All four of its exponents are under `0.004` in size. I'm not certain why the pairing is so much weaker there; the pairing is reported, not gated (D-082, Q1). `λ̂₁ + λ̂₄ = −(λ̂₂ + λ̂₃)` holds to the printed digits on every state, as the sum identity of D-082 requires.
+  - `Σ ln|R_ii| − exact` equals `Σ r` to the printed digits on every run, which is identity (a). For Lorenz, `Σ r ≈ +0.376` over `T = 10⁴` (about `3.8e-5` per unit time) is RK4's integration error in the volume change at `dt = 1/128`. For the pendulum it is at most `3.7e-5` over `T = 10³`.
+  - The coordinate-mismatch control exceeds `δ_BQ` on 4 of the 8 states (largest ratio `5.28`). Under the worst-case bound it might not have exceeded it (D-085); it did.
+- **The timeout fractions of the first CI run (D-084, D-059, D-071).** The run is 39333422868: event `pull_request`, head `84057de`, job "full tier (gates)" success, "fast tier (smoke)" skipped, `4 workers [734 items]`, `734 passed in 260.05s (0:04:20)`, and lint passed. The fractions below are taken from the job's "slowest 15 durations", against each test's declared timeout:
+
+  | Test | CI time | Timeout | Fraction |
+  |---|---|---|---|
+  | milestone 5: coordinate-mismatch control | 28.99 s | 60 s (default) | 48 % |
+  | milestone 4: V1 regular | 40.82 s | 120 s (`V1_REGULAR_TIMEOUT_S`) | 34 % |
+  | milestone 3: G4 regular | 15.80 s | 60 s | 26 % |
+  | the oracle's O3 | 13.03 s | 60 s | 22 % |
+  | milestone 4: E1 chaotic-0 | 36.36 s | 300 s (`E_TIMEOUT_S`) | 12 % |
+  | milestone 4: E1 damped control, chaotic | 32.01 s | 300 s | 11 % |
+  | milestone 4: E1 damped control, regular | 25.50 s | 300 s | 9 % |
+
+  Every other test took at most 11.39 s, the fifteenth slowest, which is at most 19 % of 60 s. **The worst fraction in the job is the milestone 5 mismatch control, at 48 %.** No milestone 5 test declares a timeout (D-091). The mismatch control took 2.9 times its cold lab time of 10.08 s, within the 3.4 times that D-084 allows for. V1 regular is well under the 75 % mark of D-071.
+- **The lab folder** (`lab/` in the session scratchpad) was deleted on 2026-10-19 on the owner's word (D-038), after D-093 logged the gate results. It held the lab script and outputs, which D-091 and D-092 already log. The review-input files and the gate log of D-093 stay in the scratchpad, outside the repository.
+- **Also on the branch:** `CLAUDE.md` now says milestones 1 to 5 are done, gives the next free number and points to milestone 6. `PROGRESS.md` gets a "Milestone 5 built" line. The allow rule of D-089 (`uv run --locked pytest -m fast` only) is unchanged, because the lab that motivated it is over and widening it again is the owner's decision. `docs/plans/stage1.md` is unchanged: its status is kept in `PROGRESS.md`, as its note says.
+- **The printout,** unedited (the exit status, 0, is not part of it):
+
+```
+Provenance (D-019, D-048)
+  git commit   b6445571345211345dcc3703982ffb6e173ee680   (clean)
+  python       3.12.11
+  jax          0.11.2
+  jaxlib       0.11.2
+  numpy        2.5.3
+  scipy        1.18.1
+
+Milestone 5, the Lyapunov estimators: the gates of D-079 to D-082 (D-085, D-086), with the lab's values of D-091
+   pendulum tau_Q = 80 steps, tau_B = 400 steps, dt = 0.01, t_trans = 100, T = 1000, d0 = 1e-09
+
+1. The identity of D-079(a): per QR interval, |sum ln|R_ii| - log_det_steps| over c eps N_Q n kappa_j,
+   c = 100; the gate is the worst ratio <= 1, valid if every kappa_j <= KAPPA_CAP = 1e+04
+   run                         N_Q intervals  max kappa_j  worst ratio  verdict
+   Lorenz 0                     25     51200        881.4    2.745e-04  ok
+   Lorenz 1                     25     51200        879.7    2.787e-04  ok
+   Lorenz 2                     25     51200        843.2    2.684e-04  ok
+   Lorenz 3                     25     51200        868.2    2.427e-04  ok
+   pendulum (q, p) 0            80      1250        335.3    2.748e-04  ok
+   pendulum (q, p) 1            80      1250         44.8    2.607e-04  ok
+   pendulum (q, p) 2            80      1250        163.9    2.506e-04  ok
+   pendulum (q, p) 3            80      1250          5.9    3.238e-04  ok
+   pendulum (q, p) 4            80      1250        513.4    2.990e-04  ok
+   pendulum (q, p) 5            80      1250        156.1    2.423e-04  ok
+   pendulum (q, p) 6            80      1250         92.4    2.425e-04  ok
+   pendulum (q, p) 7            80      1250         75.8    3.063e-04  ok
+   pendulum (theta, omega) 0    80      1250        416.4    1.551e-04  ok
+   pendulum (theta, omega) 1    80      1250         63.0    1.933e-04  ok
+   pendulum (theta, omega) 2    80      1250        140.2    2.929e-04  ok
+   pendulum (theta, omega) 3    80      1250          7.8    3.099e-04  ok
+   pendulum (theta, omega) 4    80      1250        398.5    2.204e-04  ok
+   pendulum (theta, omega) 5    80      1250        120.6    2.142e-04  ok
+   pendulum (theta, omega) 6    80      1250         95.2    2.125e-04  ok
+   pendulum (theta, omega) 7    80      1250         70.3    2.842e-04  ok
+   L4                          100      1000          9.4    9.029e-05  ok
+   HO                          100      1000          3.6    1.344e-04  ok
+   Control: the frame follows the jvp of an Euler step; must fail on the bound
+   Euler frame, lorenz          25     51200       1235.6    2.748e+10  fails as required (bound)
+   Euler frame, pendulum-qp     80      1250        331.9    5.988e+09  fails as required (bound)
+   section 1 took (16 s)
+
+2. The per-step residual of D-079(b) and D-086: R(dt) = max over the 8 states of |ln|det J_step| - ell|;
+   the gate is the slope of log R >= 4.0, valid if R at the smallest dt >= 2.220e-13
+   (theta, omega): dt = 0.08, 0.04, 0.02, 0.01
+      R = 1.353e-04, 3.502e-06, 9.093e-08, 2.501e-09
+      slope 5.2439 (floor 4.0), R at the smallest dt 2.501e-09 = 1.13e+04 times the validity floor  ok
+      report only: per-state slopes 4.778 to 5.244; r keeps one sign over the grid at every state
+   (q, p): dt = 0.16, 0.08, 0.04, 0.02
+      R = 3.023e-03, 7.704e-05, 1.412e-06, 2.295e-08
+      slope 5.6791 (floor 4.0), R at the smallest dt 2.295e-08 = 1.03e+05 times the validity floor  ok
+      report only: per-state slopes 4.544 to 5.696; r keeps one sign over the grid at every state
+   Lorenz: dt = 0.005, 0.0025, 0.00125, 0.000625
+      R = 8.757e-08, 2.689e-09, 8.331e-11, 2.593e-12
+      slope 5.0143 (floor 4.0), R at the smallest dt 2.593e-12 = 11.7 times the validity floor  ok
+      report only: per-state slopes 4.944 to 5.024; r keeps one sign over the grid at every state
+   Controls: an O(dt) residual; must fail on the slope (or the floor, D-079, D-089)
+   theta-ell-zero    slope 0.9729, R at the smallest dt 2.146e-02  fails as required (slope)
+   theta-reciprocal  slope 0.9729, R at the smallest dt 4.292e-02  fails as required (slope)
+   lorenz-beta       slope 1.0000, R at the smallest dt 1.667e-05  fails as required (slope)
+   qp-damping        slope 1.2949, R at the smallest dt 4.000e-04  fails as required (slope)
+   section 2 took (7 s)
+
+3. The linear systems of D-080: T = 1000, dt = 0.01, tau_B = tau_Q = 1; references are the exponents of the RK4 map
+   statistic                                value       bound    ratio  verdict
+   L4 |S_1 - ref| <= B_1                2.534e-03   3.914e-03    0.647  ok
+   L4 |S_3 - ref| <= B_3                3.601e-04   3.914e-03    0.092  ok
+   L4 |S_4 - ref| <= B_4                7.772e-16   4.394e-03 1.77e-13  ok
+   HO |S_1 - ref| <= ln kappa(V) / T    6.464e-04   6.931e-04    0.933  ok
+   L4 Benettin |lambda - ref| <= B_1    2.534e-03   3.914e-03    0.647  ok
+   HO Benettin |lambda - ref| <= B_1    6.464e-04   6.931e-04    0.933  ok
+   L4 full sum per interval (ratio)     3.187e-05   1.000e+00 3.19e-05  ok; max kappa_j 9.41 ok
+   HO full sum per interval (ratio)     1.357e-04   1.000e+00 0.000136  ok; max kappa_j 3.58 ok
+   report only: the QR exponents against the RK4-map references
+   L4: +0.497466 (+0.500000)  -0.197595 (-0.200000)  -0.200231 (-0.200000)  -0.999640 (-1.000000)
+   HO: +0.000646 (-0.000000)  -0.000646 (-0.000000)
+   Controls: must fail on the bound (or be not finite, for the run without QR)
+   L4 eigenvalue 0.6, |S_1 - ref|       9.747e-02   3.914e-03     24.9  fails as required (bound)
+   L4 without QR, |S_3 - ref|           6.736e+02   3.914e-03 1.72e+05  fails as required (bound)
+   section 3 took (0 s)
+
+4. Lorenz against Viswanath (D-081): T = 10000, dt = 1/128, transient 1600 steps, tau_B = 320 steps, tau_Q = 25 steps
+   |lambda_1 - 0.90566| <= 0.003 + 7e-05 = 0.00307; |lambda_2| <= 0.001
+   ic  statistic                        value     |error|     bound    ratio  verdict
+   0   lambda_1 Benettin             0.907292   1.632e-03   0.00307    0.532  ok
+   0   lambda_1 QR                   0.907292   1.632e-03   0.00307    0.531  ok
+   0   lambda_2 QR                 -8.901e-05   8.901e-05     1e-03    0.089  ok
+   0   lambda_3 QR (report only)   -14.573832
+   1   lambda_1 Benettin             0.905621   3.891e-05   0.00307   0.0127  ok
+   1   lambda_1 QR                   0.905621   3.853e-05   0.00307   0.0126  ok
+   1   lambda_2 QR                  1.038e-04   1.038e-04     1e-03    0.104  ok
+   1   lambda_3 QR (report only)   -14.572354
+   2   lambda_1 Benettin             0.905879   2.192e-04   0.00307   0.0714  ok
+   2   lambda_1 QR                   0.905879   2.188e-04   0.00307   0.0713  ok
+   2   lambda_2 QR                  2.183e-05   2.183e-05     1e-03   0.0218  ok
+   2   lambda_3 QR (report only)   -14.572530
+   3   lambda_1 Benettin             0.908100   2.440e-03   0.00307    0.795  ok
+   3   lambda_1 QR                   0.908100   2.440e-03   0.00307    0.795  ok
+   3   lambda_2 QR                  4.097e-05   4.097e-05     1e-03    0.041  ok
+   3   lambda_3 QR (report only)   -14.574770
+   Controls: must fail on the bar (or be not finite, for QR without re-orthonormalization)
+   0   Benettin, no renormalization    0.002306   9.034e-01   0.00307      294  fails as required (bar)
+   0   lambda_2, no QR                    nan         nan     1e-03      n/a  fails as required (not finite)
+   section 4 took (1 s)
+
+5. Benettin against QR (D-082, D-085): |lambda_B - lambda_QR,1| <= delta_BQ = s eps X / (d0 dt), s = 5,
+   valid if X <= X_cap. Report only: delta_pr = z delta_BQ / sqrt(N_total), z = 5, and 'low power' where delta_BQ > 0.1 |lambda_QR,1|
+   run            lambda_B  lambda_QR,1     |diff|         X     X_cap   delta_BQ    ratio   delta_pr  verdict
+   pendulum 0     0.464641     0.464628  1.279e-05   128.527    6204.9  1.427e-02 0.000897  2.256e-04  ok
+   pendulum 1     0.329515     0.329511  3.745e-06    84.000    4746.0  9.326e-03 0.000402  1.475e-04  ok
+   pendulum 2     0.410935     0.410936  7.288e-07   177.419    5424.0  1.970e-02  3.7e-05  3.114e-04  ok
+   pendulum 3     0.002420     0.002422  1.489e-06     2.951    4758.3  3.276e-04  0.00454  5.180e-06  ok  low power
+   pendulum 4     0.472367     0.472386  1.878e-05   165.824    6138.3  1.841e-02  0.00102  2.911e-04  ok
+   pendulum 5     0.389120     0.389113  7.739e-06    95.972    5358.3  1.066e-02 0.000726  1.685e-04  ok
+   pendulum 6     0.370831     0.370769  6.216e-05    90.691    5160.0  1.007e-02  0.00617  1.592e-04  ok
+   pendulum 7     0.337193     0.337204  1.113e-05   189.502    4970.3  2.104e-02 0.000529  3.327e-04  ok
+   Lorenz 0       0.907292     0.907292  3.110e-07    47.520      78.0  6.753e-03  4.6e-05  2.984e-05  ok
+   Lorenz 1       0.905621     0.905621  3.796e-07    47.425      78.0  6.740e-03 5.63e-05  2.978e-05  ok
+   Lorenz 2       0.905879     0.905879  4.420e-07    47.214      78.0  6.710e-03 6.59e-05  2.965e-05  ok
+   Lorenz 3       0.908100     0.908100  1.778e-08    47.318      78.0  6.724e-03 2.64e-06  2.972e-05  ok
+   Control: QR on the (theta, omega) field against Benettin in (q, p); the largest ratio over the 8 states must exceed 1
+   ratio per state: 4.15, 5.28, 0.851, 0.239, 1.93, 0.875, 1.12, 0.468; largest 5.28  fails as required (bound)
+   section 5 took (0 s)
+
+6. Report only (D-079, D-082): the exponents, the pairing sums and the exponent sums against the exact
+   log-volume rate, at the powers of ten on a QR boundary; 'sum r' is sum log_det_steps - exact over the window
+   pendulum (q, p), T = 1000: the four exponents, the pairing sums, and times T
+   state   lambda_1   lambda_2   lambda_3   lambda_4     l1 + l4     l2 + l3  (l1+l4) T  (l2+l3) T
+       0   0.464628   0.004271  -0.004271  -0.464628  -2.218e-08  -1.318e-08 -2.218e-05 -1.318e-05
+       1   0.329511  -0.000867   0.000867  -0.329511  -4.176e-09  -6.614e-09 -4.176e-06 -6.614e-06
+       2   0.410936   0.001000  -0.001000  -0.410936   2.619e-08  -4.637e-08  2.619e-05 -4.637e-05
+       3   0.002422   0.003091  -0.003124  -0.002388   3.347e-05  -3.347e-05  3.347e-02 -3.347e-02
+       4   0.472386   0.000788  -0.000788  -0.472386  -1.893e-08  -1.580e-08 -1.893e-05 -1.580e-05
+       5   0.389113   0.002520  -0.002520  -0.389113  -6.349e-09  -1.252e-08 -6.349e-06 -1.252e-05
+       6   0.370769   0.008343  -0.008342  -0.370769  -1.072e-07   9.151e-08 -1.072e-04  9.151e-05
+       7   0.337204   0.000690  -0.000690  -0.337204  -4.335e-09  -9.843e-09 -4.335e-06 -9.843e-06
+   running lambda_1 (q, p) at the checkpoints t = 100, 1000
+   state 0: 0.421535, 0.464628
+   state 1: 0.404609, 0.329511
+   state 2: 0.381433, 0.410936
+   state 3: 0.007836, 0.002422
+   state 4: 0.559011, 0.472386
+   state 5: 0.423971, 0.389113
+   state 6: 0.295714, 0.370769
+   state 7: 0.305678, 0.337204
+   pendulum (theta, omega): exact rate (1/t) ln[det M(theta_0) / det M(theta_t)], inside the envelope ln(1 + m2/m1) / t = 0.6931 / t
+   state 0: t = 100: +2.527022e-04 (minus exact -4.005e-08); t = 1000: +2.847454e-04 (minus exact -3.675e-08)
+            sum ln|R_ii| - exact -3.675e-05, sum r -3.675e-05
+   state 1: t = 100: -4.001631e-03 (minus exact -1.133e-08); t = 1000: +1.624489e-04 (minus exact -1.034e-08)
+            sum ln|R_ii| - exact -1.034e-05, sum r -1.034e-05
+   state 2: t = 100: +3.514757e-03 (minus exact -2.040e-08); t = 1000: -1.372675e-05 (minus exact -1.866e-08)
+            sum ln|R_ii| - exact -1.866e-05, sum r -1.866e-05
+   state 3: t = 100: +2.873949e-04 (minus exact -5.046e-10); t = 1000: +6.029911e-05 (minus exact -5.021e-10)
+            sum ln|R_ii| - exact -5.021e-07, sum r -5.021e-07
+   state 4: t = 100: -5.924689e-03 (minus exact -2.703e-08); t = 1000: -2.358558e-04 (minus exact -2.997e-08)
+            sum ln|R_ii| - exact -2.997e-05, sum r -2.997e-05
+   state 5: t = 100: -2.316451e-03 (minus exact -1.343e-08); t = 1000: -2.342562e-04 (minus exact -1.732e-08)
+            sum ln|R_ii| - exact -1.732e-05, sum r -1.732e-05
+   state 6: t = 100: +1.038025e-03 (minus exact -1.276e-08); t = 1000: -2.002400e-04 (minus exact -1.486e-08)
+            sum ln|R_ii| - exact -1.486e-05, sum r -1.486e-05
+   state 7: t = 100: +2.448557e-03 (minus exact -1.347e-08); t = 1000: -2.775891e-05 (minus exact -1.212e-08)
+            sum ln|R_ii| - exact -1.212e-05, sum r -1.212e-05
+   pendulum (q, p): exact rate 0
+   state 0: t = 100: -3.323437e-08 (minus exact -3.323e-08); t = 1000: -3.536300e-08 (minus exact -3.536e-08)
+            sum ln|R_ii| - exact -3.536e-05, sum r -3.536e-05
+   state 1: t = 100: -1.052064e-08 (minus exact -1.052e-08); t = 1000: -1.079036e-08 (minus exact -1.079e-08)
+            sum ln|R_ii| - exact -1.079e-05, sum r -1.079e-05
+   state 2: t = 100: -1.911392e-08 (minus exact -1.911e-08); t = 1000: -2.017748e-08 (minus exact -2.018e-08)
+            sum ln|R_ii| - exact -2.018e-05, sum r -2.018e-05
+   state 3: t = 100: -2.565373e-10 (minus exact -2.565e-10); t = 1000: -2.572703e-10 (minus exact -2.573e-10)
+            sum ln|R_ii| - exact -2.573e-07, sum r -2.573e-07
+   state 4: t = 100: -2.733826e-08 (minus exact -2.734e-08); t = 1000: -3.472796e-08 (minus exact -3.473e-08)
+            sum ln|R_ii| - exact -3.473e-05, sum r -3.473e-05
+   state 5: t = 100: -1.484813e-08 (minus exact -1.485e-08); t = 1000: -1.886448e-08 (minus exact -1.886e-08)
+            sum ln|R_ii| - exact -1.886e-05, sum r -1.886e-05
+   state 6: t = 100: -1.502777e-08 (minus exact -1.503e-08); t = 1000: -1.573179e-08 (minus exact -1.573e-08)
+            sum ln|R_ii| - exact -1.573e-05, sum r -1.573e-05
+   state 7: t = 100: -1.434311e-08 (minus exact -1.434e-08); t = 1000: -1.417790e-08 (minus exact -1.418e-08)
+            sum ln|R_ii| - exact -1.418e-05, sum r -1.418e-05
+   Lorenz: exact rate -(sigma + 1 + beta) = -13.666667
+   ic 0: t = 100: -1.366663e+01 (minus exact +3.727e-05); t = 1000: -1.366663e+01 (minus exact +3.736e-05); t = 10000: -1.366663e+01 (minus exact +3.761e-05)
+         sum ln|R_ii| - exact +3.761e-01, sum r +3.761e-01
+   ic 1: t = 100: -1.366663e+01 (minus exact +3.786e-05); t = 1000: -1.366663e+01 (minus exact +3.769e-05); t = 10000: -1.366663e+01 (minus exact +3.756e-05)
+         sum ln|R_ii| - exact +3.756e-01, sum r +3.756e-01
+   ic 2: t = 100: -1.366663e+01 (minus exact +3.807e-05); t = 1000: -1.366663e+01 (minus exact +3.756e-05); t = 10000: -1.366663e+01 (minus exact +3.757e-05)
+         sum ln|R_ii| - exact +3.757e-01, sum r +3.757e-01
+   ic 3: t = 100: -1.366663e+01 (minus exact +3.716e-05); t = 1000: -1.366663e+01 (minus exact +3.750e-05); t = 10000: -1.366663e+01 (minus exact +3.765e-05)
+         sum ln|R_ii| - exact +3.765e-01, sum r +3.765e-01
+   section 6 took (0 s)
+
+All checks are within the declared thresholds, and every control fails as required.
+```
+- **Next free number:** D-095.
