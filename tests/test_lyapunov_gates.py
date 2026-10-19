@@ -8,10 +8,15 @@ fail with an ``AttributeError`` naming the value.
 
 Each control runs a deliberately wrong input through the same measurement and must fail on the
 gate's own rule, not on a validity rule: the controls match the message of the slope or of the
-ceiling, so an ``inconclusive`` failure or a NaN cannot satisfy them. Every measurement is made
-outside the ``raises`` block, so an exception from the code under test is an error and not a
-pass. The measurements are in ``tests/lyapunov_checks.py``, shared with the script.
+ceiling, so an ``inconclusive`` failure or a NaN cannot satisfy them. The one exception is the
+three D-079(b) controls, which D-079 lets fail on the floor as weaker evidence (D-089). Every
+measurement is made outside the ``raises`` block, so an exception from the code under test is an
+error and not a pass. The measurements are in ``tests/lyapunov_checks.py``, shared with the script.
 """
+
+import math
+import re
+from collections.abc import Callable
 
 import jax.numpy as jnp
 import numpy as np
@@ -25,6 +30,7 @@ from tests import lyapunov_checks as lc
 
 EXCEEDS = "exceeds the ceiling"
 SLOPE_FAILS = r"slope: .* is below the floor"
+FLOOR_FAILS = r"inconclusive, R = .* at the smallest dt is under the validity floor"
 LORENZ_ICS = [pytest.param(i, id=f"ic-{i}") for i in range(tol.N_LORENZ_ICS)]
 PENDULUM = [pytest.param(i, id=f"state-{i}") for i in range(tol.N_LYAP_PENDULUM)]
 
@@ -148,11 +154,18 @@ def test_b_lorenz_residual_decays_at_order_four_or_more() -> None:
         pytest.param("qp-damping", id="qp-damping"),
     ],
 )
-def test_b_control_a_wrong_exact_value_fails_the_aggregate_slope(control: str) -> None:
+def test_b_control_a_wrong_exact_value_fails_the_aggregate_slope(
+    control: str, record_property: Callable[[str, object], None]
+) -> None:
     """Controls of D-079(b) and D-086: each leaves an ``O(dt)`` residual, so the aggregate slope
-    is about 1 and must fail on the slope rule (not the floor): D-008 with ``ell = 0`` and with
-    the reciprocal formula; Lorenz with ``beta`` changed by 1 percent in the field; ``(q, p)``
-    with a damping ``gamma = 0.01`` against ``ell = 0`` (D-086).
+    is about 1: D-008 with ``ell = 0`` and with the reciprocal formula; Lorenz with ``beta``
+    changed by 1 percent in the field; ``(q, p)`` with a damping ``gamma = 0.01`` against
+    ``ell = 0`` (D-086).
+
+    The ``(q, p)`` control must fail on the slope rule (D-086). The three D-079 controls fail on
+    the slope or on the floor, the floor being weaker evidence (D-079, D-089); a floor failure
+    counts only with a finite ``R``, so a NaN does not satisfy them. The rule that triggered is
+    recorded as the user property ``failed_rule``.
     """
     if control == "theta-ell-zero":
         measurement = _theta_step(lc.ell_canonical)
@@ -162,8 +175,14 @@ def test_b_control_a_wrong_exact_value_fails_the_aggregate_slope(control: str) -
         measurement = _lorenz_step(lc.LORENZ_CONTROL)
     else:
         measurement = _canonical_step(lc.damped_canonical_field)
-    with pytest.raises(AssertionError, match=SLOPE_FAILS):
+    accepted = SLOPE_FAILS if control == "qp-damping" else f"{SLOPE_FAILS}|{FLOOR_FAILS}"
+    with pytest.raises(AssertionError, match=accepted) as failure:
         lc.check_step(measurement, what=f"control {control}")
+    rule = "slope" if re.search(SLOPE_FAILS, str(failure.value)) else "floor"
+    record_property("failed_rule", rule)
+    record_property("failure_message", str(failure.value))
+    if rule == "floor":
+        assert math.isfinite(measurement.floor_value), f"control {control}: R is not finite"
 
 
 # ---- D-080: the linear systems -------------------------------------------------------------
@@ -200,11 +219,13 @@ def test_ho_leading_exponent_lies_within_ln_kappa_over_t() -> None:
 @pytest.mark.parametrize("system", ["l4", "ho"])
 def test_linear_full_sums_match_the_rk4_map_on_every_interval(system: str) -> None:
     """D-080: the full sum per interval equals ``N_Q sum_i ln|R(dt mu_i)|``, exact per step,
-    within the rounding bound of D-079(a)."""
+    within the rounding bound of D-079(a), under its validity rule: inconclusive if any
+    ``kappa_j > KAPPA_CAP`` (D-089)."""
     if system == "l4":
         run, mu = lc.l4_run(), lc.l4_continuous_eigenvalues()
     else:
         run, mu = lc.ho_run(), lc.ho_continuous_eigenvalues()
+    lc.check_kappa_cap(run.qr, what=f"{system} full sum")
     n_q = tol.LINEAR_STEPS_PER_INTERVAL
     exact = n_q * float(np.sum(lc.rk4_map_exponents(mu, tol.AGREE_DT))) * tol.AGREE_DT
     log_r = np.asarray(run.qr.log_r)
@@ -239,7 +260,9 @@ def test_linear_benettin_lies_within_the_leading_bound(system: str) -> None:
 def test_l4_control_a_shifted_eigenvalue_fails_the_bound() -> None:
     """Control of D-080: L4 with ``0.5`` replaced by ``0.6`` in the field, against the declared
     references. ``S_1`` is off by about 0.1, far above ``B_1``."""
-    run = lc.linear_run(lc.l4_matrix(tol.L4_CONTROL_EIGENVALUE), np.zeros(4), lc.l4_frame())
+    run = lc.linear_run(
+        lc.l4_matrix(tol.L4_CONTROL_EIGENVALUE), np.array(tol.L4_STATE0), lc.l4_frame()
+    )
     reference = float(lc.rk4_map_exponents(lc.l4_continuous_eigenvalues(), tol.AGREE_DT)[0])
     bound = lc.linear_bound(lc.l4_matrix(), lc.l4_frame(), 1, tol.LYAP_T)
     error = abs(_partial_sum(run, 1) - reference)
@@ -252,7 +275,7 @@ def test_l4_control_qr_without_reorthonormalization_fails_s3() -> None:
     n = lc.steps(tol.LYAP_T, tol.AGREE_DT)
     result = lc.qr_with(
         lc.linear,
-        np.zeros(4),
+        np.array(tol.L4_STATE0),
         jnp.asarray(lc.l4_matrix()),
         lc.l4_frame(),
         dt=tol.AGREE_DT,
@@ -262,7 +285,8 @@ def test_l4_control_qr_without_reorthonormalization_fails_s3() -> None:
         orthonormalize=lc.keep_frame,
         step_logdet=False,
     )
-    s3 = float(np.sum(np.asarray(lyapunov.exponents(result.log_r, 1.0))[:3]))
+    tau_q = tol.LINEAR_STEPS_PER_INTERVAL * tol.AGREE_DT
+    s3 = float(np.sum(np.asarray(lyapunov.exponents(result.log_r, tau_q))[:3]))
     reference = float(
         np.sum(lc.rk4_map_exponents(lc.l4_continuous_eigenvalues(), tol.AGREE_DT)[:3])
     )
@@ -396,6 +420,8 @@ def test_agreement_control_qr_in_theta_omega_exceeds_delta_bq_on_some_state() ->
             np.asarray(lyapunov.exponents(theta.log_r, steps_per_qr * tol.AGREE_DT))[0]
         )
         x = float(run.benettin.max_abs_state)
+        x_cap = lc.pendulum_x_cap(lc.pendulum_states()[index])
+        lc.check_x_cap(x, x_cap, what=f"control: coordinate mismatch, state {index}")  # D-089
         ratios.append(abs(run.lambda_b - lambda_theta) / lc.delta_bq(x, tol.AGREE_DT))
     with pytest.raises(AssertionError, match=EXCEEDS):
         chk.check_at_most(max(ratios), 1.0, what="control: coordinate mismatch (bound = 1)")

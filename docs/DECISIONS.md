@@ -1470,3 +1470,25 @@ The rules of D-083 name what the lab sets; this entry fixes how, before any lab 
 - **An audit before the lab runs.** A fresh `reviewer` subagent audits only the protected-file changes of `0b5db3d` and `a187960` against the frozen design (D-076 to D-087), and the verdict is reported to the owner. Only `0b5db3d` touches protected files (`tests/lyapunov_checks.py`, `tests/test_lyapunov_gates.py`, `tests/test_lyapunov_register.py`); `a187960` touches none, so the audit covers those three files as they are in `0b5db3d`. The audit is not a merge review and does not give `APPROVED FOR MERGE`. If it finds a deviation, it is reported to the owner and nothing is fixed without the owner's word. No lab run starts until the owner has seen the verdict.
 - **Auto mode is off for the lab and the gate runs,** so shell commands prompt the owner. Every protected file is edited with the Edit tool only.
 - **Next free number:** D-089.
+
+### D-089 The audit of D-088, the owner's fixes, and the pytest allow rule narrowed while the lab is pending (Owner, 2026-10-19)
+**The audit.** A fresh `reviewer` audited `tests/lyapunov_checks.py`, `tests/test_lyapunov_gates.py` and `tests/test_lyapunov_register.py` as of `0b5db3d` (unchanged at `6a12c92`) against D-076 to D-088. Verdict: **DEVIATES**, with no blocking finding. It found that the streams follow D-084's table and never touch 4545, every other value comes from the register, every declared gate and control is present, there is no extra gate, the tiers are correct with no timeout marks yet, the lab-pending values are read only when a run is built, and nothing leaks a gate statistic. The findings, with what the owner decided:
+- **F1** (`test_linear_full_sums_match_the_rk4_map_on_every_interval`): the RK4-map bound is used without the `κ_j ≤ KAPPA_CAP` validity rule of D-079(a), which D-080 attaches to it ("compared with the same bound"). **Fix:** the same cap check as `check_logdet_identity`, inconclusive above the cap, before the ratio.
+- **F2** (L4 `state0 = 0`, written as `np.zeros(4)` three times): D-084's a-priori table lists it, but it is not in the register, so K1 cannot pin it. **Fix:** a register constant `L4_STATE0 = (0.0, 0.0, 0.0, 0.0)` in `src/horizon/tolerances.py` (the owner approves this edit), pinned in K1 and used in all three places. This adds a constant equal to the value D-080 and D-084 already declared; it changes no value.
+- **F3** (`test_l4_control_qr_without_reorthonormalization_fails_s3`): `τ_Q` written as the literal `1.0`. **Fix:** `LINEAR_STEPS_PER_INTERVAL * AGREE_DT`.
+- **F4** (the D-079(b) controls): all four controls had to fail on the slope rule, but D-079 accepts a failure on the floor as weaker evidence. **Fix:** the three D-079 controls (`ℓ = 0`, the reciprocal, Lorenz `β`) pass if they fail on the slope or on the floor, and the test records which rule triggered (a pytest user property, plus the message). A floor failure counts only if `R` at the smallest `dt` is finite, so a NaN still does not satisfy a control. The `(q, p)` damping control stays slope-only, as D-086 requires.
+- **F6** (`lab_value`): `int(...)` would silently truncate a non-integer register value. **Fix:** it raises `TypeError` unless the value is an `int` (and not a `bool`).
+- **F7** (the coordinate-mismatch control of D-082): the ratio was taken without the `X ≤ X_cap` check. **Fix:** a state above its cap raises as inconclusive, as in `check_agreement`, so it cannot count toward the control's failure.
+- **Known items, logged and not changed:**
+  - **F5:** two thresholds the helpers set themselves. They are the tie test `1e-12 · max(1, |Re μ₁|)` in `linear_bound` and the divisibility tolerance `1e-9` in `steps()`. Neither is a gate value, and neither is near a decision for L4 or HO (real parts 0.5 against −0.2; HO exactly tied).
+  - **F8:** each committed control runs on one gate case (case 0), and the log does not say how many cases a committed control uses. D-079's "lab states" sentence describes the lab's confirmation run (D-087). Left open.
+
+**Beyond the files.** The reviewer noted two holes in the guard on order:
+- `.claude/settings.json` allowed `uv run --locked pytest:*` without a prompt, so a full-tier run could execute the 19 gate tests that need no lab value before the lab entry.
+- A pull request runs the full tier in CI.
+
+The owner's decisions:
+- **The allow rule is narrowed** to `Bash(uv run --locked pytest -m fast)` while the lab is pending. Every other pytest command prompts. This is a guard, not a gate change. Restoring the broader rule is the owner's call after the lab entry is reviewed.
+- **No pull request** until the lab entry is logged and reviewed.
+- **Order:** commit the fixes, push the branch, then run the lab under D-087 and D-088. To check the fixes, the register tests (K1 and C, which integrate nothing), the tier guards and the fast tier may be run, with a prompt where the allow rule no longer covers them. No gate test runs. The diff of these fixes goes to the same fresh reviewer as the lab entry, before any gate test runs.
+- **Next free number:** D-090.

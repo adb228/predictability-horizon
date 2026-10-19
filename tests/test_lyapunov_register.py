@@ -50,6 +50,7 @@ def test_register_holds_the_declared_lyapunov_values() -> None:
         (0.5, 0.0, 0.0, 1.0),
     )
     assert (tol.L4_CONTROL_EIGENVALUE, tol.HO_OMEGA, tol.HO_STATE0) == (0.6, 2.0, (1.0, 0.5))
+    assert tol.L4_STATE0 == (0.0, 0.0, 0.0, 0.0)  # D-089
 
     # D-081, D-083: Lorenz.
     assert (tol.LORENZ_SIGMA, tol.LORENZ_RHO, tol.LORENZ_BETA) == (10.0, 28.0, 8.0 / 3.0)

@@ -354,14 +354,20 @@ def logdet_identity_ratios(result: lyapunov.QRResult, steps_per_qr: int) -> np.n
     return np.abs(log_r.sum(axis=1) - np.asarray(result.log_det_steps)) / bound
 
 
-def check_logdet_identity(result: lyapunov.QRResult, steps_per_qr: int, *, what: str) -> float:
-    """Every ``kappa_j <= KAPPA_CAP`` (inconclusive otherwise), then every ratio at most 1."""
+def check_kappa_cap(result: lyapunov.QRResult, *, what: str) -> None:
+    """Every ``kappa_j <= KAPPA_CAP``, the validity rule of the bound of D-079(a); inconclusive
+    otherwise."""
     kappa = np.asarray(result.cond_r)
     if not np.all(np.isfinite(kappa)) or float(np.max(kappa)) > tol.KAPPA_CAP:
         raise AssertionError(
             f"{what}: {INCONCLUSIVE}, max kappa_2(R_j) = {float(np.max(kappa)):.3e} exceeds "
             f"KAPPA_CAP = {tol.KAPPA_CAP:.0e}"
         )
+
+
+def check_logdet_identity(result: lyapunov.QRResult, steps_per_qr: int, *, what: str) -> float:
+    """Every ``kappa_j <= KAPPA_CAP`` (inconclusive otherwise), then every ratio at most 1."""
+    check_kappa_cap(result, what=what)
     ratios = logdet_identity_ratios(result, steps_per_qr)
     worst = float(np.max(ratios)) if np.all(np.isfinite(ratios)) else math.inf
     return chk.check_at_most(worst, 1.0, what=f"{what}, identity ratio (bound = 1)")
@@ -399,12 +405,17 @@ def lorenz_x_cap() -> float:
     return tol.X_CAP_FACTOR * (sigma + rho + radius)
 
 
+def check_x_cap(x: float, x_cap: float, *, what: str) -> None:
+    """``X <= X_cap``, the validity rule of ``delta_BQ`` (D-085); inconclusive otherwise."""
+    if not (math.isfinite(x) and x <= x_cap):
+        raise AssertionError(f"{what}: {INCONCLUSIVE}, X = {x!r} exceeds X_cap = {x_cap:.4g}")
+
+
 def check_agreement(
     lambda_b: float, lambda_qr: float, x: float, x_cap: float, dt: float, *, what: str
 ) -> float:
     """``X <= X_cap`` (inconclusive otherwise), then ``|lambda_B - lambda_QR,1| <= delta_BQ``."""
-    if not (math.isfinite(x) and x <= x_cap):
-        raise AssertionError(f"{what}: {INCONCLUSIVE}, X = {x!r} exceeds X_cap = {x_cap:.4g}")
+    check_x_cap(x, x_cap, what=what)
     return chk.check_at_most(abs(lambda_b - lambda_qr), delta_bq(x, dt), what=what)
 
 
@@ -460,10 +471,16 @@ def qr_with(
 
 
 def lab_value(name: str) -> int:
-    """A value the calibration lab sets (D-083), read when a run is built."""
+    """A value the calibration lab sets (D-083), read when a run is built.
+
+    Lab values are step counts; anything but an ``int`` raises instead of being truncated (D-089).
+    """
     if not hasattr(tol, name):
         raise AttributeError(f"{name} is a lab value of D-083 and is not in the register yet")
-    return int(getattr(tol, name))
+    value = getattr(tol, name)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} = {value!r} is a lab value of D-083 and must be an int step count")
+    return value
 
 
 def steps(horizon: float, dt: float) -> int:
@@ -559,8 +576,8 @@ def linear_run(a: np.ndarray, state0: np.ndarray, frame: np.ndarray) -> Run:
 
 @functools.cache
 def l4_run() -> Run:
-    """The L4 run from ``state0 = 0`` (D-080)."""
-    return linear_run(l4_matrix(), np.zeros(4), l4_frame())
+    """The L4 run from ``L4_STATE0`` (D-080, D-089)."""
+    return linear_run(l4_matrix(), np.array(tol.L4_STATE0), l4_frame())
 
 
 @functools.cache

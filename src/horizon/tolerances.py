@@ -534,7 +534,10 @@ HO_OMEGA: float = 2.0
 """``Omega`` of the harmonic oscillator ``x' = v``, ``v' = -Omega**2 x`` (D-044, D-080)."""
 
 HO_STATE0: tuple[float, float] = (1.0, 0.5)
-"""Initial state of the HO runs (D-080). L4 starts at ``0`` (D-080, review R3)."""
+"""Initial state of the HO runs (D-080)."""
+
+L4_STATE0: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+"""Initial state of the L4 runs and their controls (D-080, review R3; in the register by D-089)."""
 
 LINEAR_STEPS_PER_INTERVAL: int = 100
 """L4 and HO: ``tau_B = tau_Q = 1`` time unit, 100 steps of ``AGREE_DT`` (D-083)."""
