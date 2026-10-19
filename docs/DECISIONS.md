@@ -1628,3 +1628,169 @@ A fresh `reviewer` reviewed D-091 and the D-089 fixes against D-083, D-084, D-08
   - The register tests run.
   - The gate tests run once, locally, and nothing is adjusted (D-025).
 - **Next free number:** D-093.
+
+### D-093 The milestone 5 gate tests: the first and only local run, all 68 passed (agent, 2026-10-19)
+- **What ran:** `uv run --locked pytest tests/test_lyapunov_gates.py -n auto -rA --durations=0 --junitxml=<scratchpad>/gates.xml`, once, on a clean tree at `050054e` (the four lab values of D-091 in the register, pinned in K1). It ran on macOS with Python 3.12.11, jax 0.11.2, numpy 2.5.3, and 8 xdist workers. The register tests and the tier guards passed just before it (39 passed). **Nothing was adjusted before or after.** No threshold, grid, horizon, seed stream, tolerance or gate file changed after the run, and the gate file and the checks are unchanged since `7fdfd11` (D-089).
+- **Result: 68 passed in 24.84 s.** That covers every gate and every negative control of D-079 to D-082, D-085 and D-086. No test was inconclusive.
+- **The D-079(b) controls' recorded rule** (the `failed_rule` user property of F4, D-089, from the junit file): `theta-ell-zero`, `theta-reciprocal`, `lorenz-beta` and `qp-damping` each failed on the **slope**. None failed on the floor.
+- **Timeouts:** the slowest test is the coordinate-mismatch control, at 11.06 s against the default 60 s (18 percent) under 8 workers. The worst fraction on CI is logged after the first full-tier run (D-084).
+- **What this run does not print:** pytest reports pass or fail, not the gate statistics. The milestone gate (D-084) also needs the committed script `experiments/stage1/lyapunov_validation.py` (D-076) to print every statistic inside its bound with the git SHA, and the full tier to pass on Linux CI. **The script does not exist yet.** It comes next, before the merge review.
+- **The output, unedited except for two path strings.** CLAUDE.md forbids local absolute paths in any file. The `rootdir:` line held the repository's absolute path (1 occurrence(s)) and the junit line held the scratchpad's absolute path (1 occurrence(s)). Each is replaced by a marker in angle brackets. Nothing else is changed.
+
+```
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.1.1, pluggy-1.6.0
+rootdir: <repository path redacted>
+configfile: pyproject.toml
+plugins: hypothesis-6.168.5, xdist-3.8.0, timeout-2.4.0
+timeout: 60.0s
+timeout method: signal
+timeout func_only: False
+created: 8/8 workers
+8 workers [68 items]
+
+....................................................................     [100%]
+==================================== PASSES ====================================
+- generated xml file: <scratchpad path redacted>/gates.xml -
+============================== slowest durations ===============================
+11.06s call     tests/test_lyapunov_gates.py::test_agreement_control_qr_in_theta_omega_exceeds_delta_bq_on_some_state
+5.64s call     tests/test_lyapunov_gates.py::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope[qp-damping]
+4.88s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-0]
+4.84s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-6]
+4.81s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-4]
+4.80s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-2]
+4.53s call     tests/test_lyapunov_gates.py::test_b_canonical_residual_decays_at_order_four_or_more
+3.82s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-0]
+3.80s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-5]
+3.06s call     tests/test_lyapunov_gates.py::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope[theta-ell-zero]
+3.04s call     tests/test_lyapunov_gates.py::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope[theta-reciprocal]
+2.79s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-2]
+2.77s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-0]
+2.72s call     tests/test_lyapunov_gates.py::test_a_control_an_euler_frame_fails_the_identity_bound[pendulum-qp]
+2.68s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_lorenz_runs[ic-1]
+2.60s call     tests/test_lyapunov_gates.py::test_lorenz_control_benettin_without_renormalization_falls_below_the_bar
+2.57s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_lorenz_runs[ic-3]
+2.35s call     tests/test_lyapunov_gates.py::test_b_theta_omega_residual_decays_at_order_four_or_more_the_d008_gate
+2.35s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-2]
+2.24s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-1]
+2.22s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-6]
+2.21s call     tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-3]
+2.13s call     tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-1-qr]
+2.01s call     tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-2-qr]
+1.97s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-5]
+1.93s call     tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-2-benettin]
+1.91s call     tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-0-qr]
+1.90s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-1]
+1.89s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-4]
+1.87s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-3]
+1.86s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-7]
+1.85s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-4]
+1.84s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_lorenz_runs[ic-0]
+1.81s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_lorenz_runs[ic-2]
+1.80s call     tests/test_lyapunov_gates.py::test_a_control_an_euler_frame_fails_the_identity_bound[lorenz]
+1.79s call     tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-1]
+1.75s call     tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-3-qr]
+1.74s call     tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-0-benettin]
+1.46s call     tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-3-benettin]
+1.43s call     tests/test_lyapunov_gates.py::test_b_lorenz_residual_decays_at_order_four_or_more
+1.41s call     tests/test_lyapunov_gates.py::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope[lorenz-beta]
+1.27s call     tests/test_lyapunov_gates.py::test_lorenz_control_qr_without_reorthonormalization_fails_lambda2
+0.98s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-6]
+0.96s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-7]
+0.79s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-7]
+0.62s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_linear_runs[l4]
+0.59s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-5]
+0.59s call     tests/test_lyapunov_gates.py::test_l4_control_qr_without_reorthonormalization_fails_s3
+0.58s call     tests/test_lyapunov_gates.py::test_l4_partial_sums_lie_within_the_finite_time_bound[1]
+0.57s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-3]
+0.55s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-1]
+0.52s call     tests/test_lyapunov_gates.py::test_ho_leading_exponent_lies_within_ln_kappa_over_t
+0.47s call     tests/test_lyapunov_gates.py::test_l4_partial_sums_lie_within_the_finite_time_bound[3]
+0.46s call     tests/test_lyapunov_gates.py::test_linear_benettin_lies_within_the_leading_bound[l4]
+0.42s call     tests/test_lyapunov_gates.py::test_linear_full_sums_match_the_rk4_map_on_every_interval[ho]
+0.42s call     tests/test_lyapunov_gates.py::test_linear_full_sums_match_the_rk4_map_on_every_interval[l4]
+0.39s call     tests/test_lyapunov_gates.py::test_linear_benettin_lies_within_the_leading_bound[ho]
+0.36s call     tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_linear_runs[ho]
+0.20s call     tests/test_lyapunov_gates.py::test_l4_partial_sums_lie_within_the_finite_time_bound[4]
+0.19s call     tests/test_lyapunov_gates.py::test_l4_control_a_shifted_eigenvalue_fails_the_bound
+0.13s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-3]
+0.06s call     tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-0]
+0.04s call     tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-1-benettin]
+0.01s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_lorenz_runs[ic-3]
+0.01s call     tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-2]
+0.01s setup    tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-0]
+0.01s call     tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_lorenz_runs[ic-2]
+
+(137 durations < 0.005s hidden.  Use -vv to show these durations.)
+=========================== short test summary info ============================
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_lorenz_runs[ic-2]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_lorenz_runs[ic-0]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-0]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-2]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-1]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-3]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_linear_runs[l4]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_linear_runs[ho]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_lorenz_runs[ic-3]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_lorenz_runs[ic-1]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-4]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-2]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-6]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-0]
+PASSED tests/test_lyapunov_gates.py::test_a_control_an_euler_frame_fails_the_identity_bound[lorenz]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-4]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-3]
+PASSED tests/test_lyapunov_gates.py::test_b_theta_omega_residual_decays_at_order_four_or_more_the_d008_gate
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-7]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-6]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-5]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs[state-1]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-5]
+PASSED tests/test_lyapunov_gates.py::test_l4_partial_sums_lie_within_the_finite_time_bound[1]
+PASSED tests/test_lyapunov_gates.py::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs[state-7]
+PASSED tests/test_lyapunov_gates.py::test_linear_benettin_lies_within_the_leading_bound[ho]
+PASSED tests/test_lyapunov_gates.py::test_a_control_an_euler_frame_fails_the_identity_bound[pendulum-qp]
+PASSED tests/test_lyapunov_gates.py::test_linear_full_sums_match_the_rk4_map_on_every_interval[l4]
+PASSED tests/test_lyapunov_gates.py::test_l4_control_a_shifted_eigenvalue_fails_the_bound
+PASSED tests/test_lyapunov_gates.py::test_b_lorenz_residual_decays_at_order_four_or_more
+PASSED tests/test_lyapunov_gates.py::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope[lorenz-beta]
+PASSED tests/test_lyapunov_gates.py::test_l4_control_qr_without_reorthonormalization_fails_s3
+PASSED tests/test_lyapunov_gates.py::test_l4_partial_sums_lie_within_the_finite_time_bound[3]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-1-benettin]
+PASSED tests/test_lyapunov_gates.py::test_linear_benettin_lies_within_the_leading_bound[l4]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-0-benettin]
+PASSED tests/test_lyapunov_gates.py::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope[theta-reciprocal]
+PASSED tests/test_lyapunov_gates.py::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope[theta-ell-zero]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-3-benettin]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-0]
+PASSED tests/test_lyapunov_gates.py::test_linear_full_sums_match_the_rk4_map_on_every_interval[ho]
+PASSED tests/test_lyapunov_gates.py::test_ho_leading_exponent_lies_within_ln_kappa_over_t
+PASSED tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-2-benettin]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-2-qr]
+PASSED tests/test_lyapunov_gates.py::test_b_canonical_residual_decays_at_order_four_or_more
+PASSED tests/test_lyapunov_gates.py::test_l4_partial_sums_lie_within_the_finite_time_bound[4]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_control_qr_without_reorthonormalization_fails_lambda2
+PASSED tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-1-qr]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-2]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_lorenz_runs[ic-0]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_lorenz_runs[ic-1]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_lorenz_runs[ic-2]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_lorenz_runs[ic-3]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-3-qr]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-3]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-1]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance[ic-3]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_control_benettin_without_renormalization_falls_below_the_bar
+PASSED tests/test_lyapunov_gates.py::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope[qp-damping]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-4]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-2]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-1]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-5]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-0]
+PASSED tests/test_lyapunov_gates.py::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar[ic-0-qr]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-6]
+PASSED tests/test_lyapunov_gates.py::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs[state-7]
+PASSED tests/test_lyapunov_gates.py::test_agreement_control_qr_in_theta_omega_exceeds_delta_bq_on_some_state
+============================= 68 passed in 24.84s ==============================
+```
+- **Next free number:** D-094.
