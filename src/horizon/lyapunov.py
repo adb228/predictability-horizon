@@ -18,6 +18,7 @@ Conventions (D-077, after D-028 and D-042)
   angle difference is wrapped.
 """
 
+import functools
 from collections.abc import Callable
 from functools import partial
 from typing import NamedTuple
@@ -97,11 +98,14 @@ def wrap(delta: ArrayLike) -> Array:
     jax.Array
         The wrapped differences, same shape, ``float64``.
     """
-    raise NotImplementedError
+    d = jnp.asarray(delta, dtype=jnp.float64)
+    return jnp.mod(d + jnp.pi, 2.0 * jnp.pi) - jnp.pi
 
 
 def state_difference(a: ArrayLike, b: ArrayLike, angle_mask: tuple[bool, ...]) -> Array:
     """Return ``a - b`` with ``wrap`` applied where the static ``angle_mask`` is true.
+
+    This is the only place where an angle is wrapped (D-077).
 
     Parameters
     ----------
@@ -115,7 +119,97 @@ def state_difference(a: ArrayLike, b: ArrayLike, angle_mask: tuple[bool, ...]) -
     jax.Array
         The difference, shape ``(n,)``.
     """
-    raise NotImplementedError
+    diff = jnp.asarray(a, dtype=jnp.float64) - jnp.asarray(b, dtype=jnp.float64)
+    return jnp.where(jnp.asarray(angle_mask), wrap(diff), diff)
+
+
+# ---- the step maps and the seam for the controls (D-077) -----------------------------------
+#
+# The cores take the step functions as static arguments. They are built once per field and
+# cached, so that the same field compiles once.
+
+
+@functools.cache
+def _rk4_step_of[P](f: Field[P]) -> Step[P]:
+    """Return the RK4 step map of ``f`` as ``step(state, params, dt)``."""
+
+    def step(state: Array, params: P, dt: Array) -> Array:
+        return rk4_step(f, state, params, dt)
+
+    return step
+
+
+@functools.cache
+def _rk4_tangent_of[P](f: Field[P]) -> TangentStep[P]:
+    """Return the exact derivative of the RK4 step applied to one vector, by ``jax.jvp``."""
+
+    def tangent(state: Array, params: P, dt: Array, v: Array) -> Array:
+        return jax.jvp(lambda y: rk4_step(f, y, params, dt), (state,), (v,))[1]
+
+    return tangent
+
+
+def _householder(frame: Array) -> tuple[Array, Array]:
+    """Re-orthonormalize: the frame becomes ``Q`` of ``jnp.linalg.qr`` and ``R`` is returned."""
+    return jnp.linalg.qr(frame)
+
+
+def _require_transient(value: object) -> None:
+    """Raise unless ``value`` is a Python ``int`` of at least 0 (``bool`` is not accepted)."""
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"n_transient must be an int, got {type(value).__name__}")
+    if value < 0:
+        raise ValueError(f"n_transient must be at least 0, got {value}")
+
+
+def _max_abs(x: Array) -> Array:
+    return jnp.max(jnp.abs(x))
+
+
+# ---- Benettin (D-077) ----------------------------------------------------------------------
+
+
+@partial(
+    jax.jit,
+    static_argnames=("step", "steps_per_renorm", "n_transient", "n_renorm", "angle_mask"),
+)
+def _benettin_core[P](
+    step: Step[P],
+    state0: Array,
+    params: P,
+    direction0: Array,
+    dt: Array,
+    d0: Array,
+    steps_per_renorm: int,
+    n_transient: int,
+    n_renorm: int,
+    angle_mask: tuple[bool, ...],
+) -> BenettinResult:
+    """Compiled core of ``benettin``; ``step`` advances one state by one step."""
+
+    def one_step(
+        carry: tuple[Array, Array, Array], _: None
+    ) -> tuple[tuple[Array, Array, Array], None]:
+        x, x_tilde, peak = carry
+        x = step(x, params, dt)
+        x_tilde = step(x_tilde, params, dt)
+        return (x, x_tilde, jnp.maximum(peak, _max_abs(x))), None
+
+    def interval(
+        carry: tuple[Array, Array, Array], _: None
+    ) -> tuple[tuple[Array, Array, Array], Array]:
+        (x, x_tilde, peak), _ = jax.lax.scan(one_step, carry, None, length=steps_per_renorm)
+        delta = state_difference(x_tilde, x, angle_mask)
+        d = jnp.linalg.norm(delta)
+        return (x, x + (d0 / d) * delta, peak), jnp.log(d / d0)
+
+    x0 = jnp.asarray(state0, dtype=jnp.float64)
+    start = (x0, x0 + d0 * jnp.asarray(direction0, dtype=jnp.float64), jnp.asarray(0.0))
+    (x, x_tilde, _), _ = jax.lax.scan(interval, start, None, length=n_transient)
+    (x, _, peak), log_growth = jax.lax.scan(
+        interval, (x, x_tilde, _max_abs(x)), None, length=n_renorm
+    )
+    return BenettinResult(log_growth, x, peak)
 
 
 def benettin[P](
@@ -133,9 +227,132 @@ def benettin[P](
 ) -> BenettinResult:
     """Estimate the largest exponent by Benettin's two-trajectory method (D-077).
 
-    See ``docs/derivations/lyapunov.md`` and D-077 for the method.
+    The reference trajectory starts at ``state0`` and the perturbed one at
+    ``state0 + d0 * direction0``. Every ``steps_per_renorm`` steps the method computes
+    ``Delta = state_difference(x_tilde, x)`` and ``d = ||Delta||_2``, records ``ln(d / d0)``, and
+    sets ``x_tilde = x + (d0 / d) Delta``. The first ``n_transient`` intervals are discarded;
+    the next ``n_renorm`` are recorded. The exponent is ``exponents(log_growth, tau_B)`` with
+    ``tau_B = steps_per_renorm * dt``.
+
+    Parameters
+    ----------
+    f : callable
+        Right-hand side ``f(state, params)``. Static: pass a module-level function.
+    state0 : array_like
+        Initial state, shape ``(n,)``.
+    params : pytree
+        Passed through to ``f``.
+    direction0 : array_like
+        Unit vector of shape ``(n,)``, the initial direction of the separation.
+    dt, d0 : float
+        RK4 step and the renormalized separation.
+    steps_per_renorm, n_renorm : int
+        Python ints of at least 1. Static.
+    n_transient : int
+        Python int of at least 0. Static.
+    angle_mask : tuple of bool
+        Static, length ``n``: which components are angles and get wrapped in ``Delta``.
+
+    Returns
+    -------
+    BenettinResult
+        ``log_growth`` of shape ``(n_renorm,)``, ``final_state`` and ``max_abs_state``.
+
+    Raises
+    ------
+    TypeError, ValueError
+        If a count is not an ``int`` or is out of range, or ``angle_mask`` has the wrong length.
     """
-    raise NotImplementedError
+    _require_count(steps_per_renorm, "steps_per_renorm")
+    _require_count(n_renorm, "n_renorm")
+    _require_transient(n_transient)
+    x0 = jnp.asarray(state0, dtype=jnp.float64)
+    mask = tuple(bool(m) for m in angle_mask)
+    if len(mask) != x0.shape[0]:
+        raise ValueError(f"angle_mask has {len(mask)} entries for a state of size {x0.shape[0]}")
+    return _benettin_core(
+        _rk4_step_of(f), x0, params, jnp.asarray(direction0, dtype=jnp.float64), dt, d0,
+        steps_per_renorm, n_transient, n_renorm, mask,
+    )  # fmt: skip
+
+
+# ---- QR (D-077) ----------------------------------------------------------------------------
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "state_step",
+        "tangent_step",
+        "orthonormalize",
+        "steps_per_qr",
+        "n_transient",
+        "n_qr",
+        "step_logdet",
+    ),
+)
+def _tangent_qr_core[P](
+    state_step: Step[P],
+    tangent_step: TangentStep[P],
+    orthonormalize: Callable[[Array], tuple[Array, Array]],
+    state0: Array,
+    params: P,
+    frame0: Array,
+    dt: Array,
+    steps_per_qr: int,
+    n_transient: int,
+    n_qr: int,
+    step_logdet: bool,
+) -> QRResult:
+    """Compiled core of ``tangent_qr``, the seam for the controls (D-077).
+
+    ``state_step`` advances the state and ``tangent_step`` one column of the frame;
+    ``orthonormalize`` returns the new frame and ``R``. ``log_det_steps`` always follows
+    ``state_step``, never ``tangent_step``.
+    """
+    columns = jax.vmap(tangent_step, in_axes=(None, None, None, 1), out_axes=1)
+
+    def log_det(x: Array) -> Array:
+        return jnp.linalg.slogdet(jax.jacfwd(lambda y: state_step(y, params, dt))(x))[1]
+
+    def one_step(
+        carry: tuple[Array, Array, Array, Array], _: None
+    ) -> tuple[tuple[Array, Array, Array, Array], None]:
+        x, frame, peak, acc = carry
+        frame = columns(x, params, dt, frame)
+        if step_logdet:
+            acc = acc + log_det(x)
+        x = state_step(x, params, dt)
+        return (x, frame, jnp.maximum(peak, _max_abs(x)), acc), None
+
+    def interval(
+        carry: tuple[Array, Array, Array], _: None
+    ) -> tuple[tuple[Array, Array, Array], tuple[Array, Array, Array, Array]]:
+        x, frame, peak = carry
+        (x, frame, peak, acc), _ = jax.lax.scan(
+            one_step, (x, frame, peak, jnp.asarray(0.0)), None, length=steps_per_qr
+        )
+        frame, r = orthonormalize(frame)
+        singular = jnp.linalg.svd(r, compute_uv=False)
+        return (x, frame, peak), (jnp.log(jnp.abs(jnp.diag(r))), x, singular[0] / singular[-1], acc)
+
+    x0 = jnp.asarray(state0, dtype=jnp.float64)
+    frame0 = jnp.asarray(frame0, dtype=jnp.float64)
+    (x, frame, _), _ = jax.lax.scan(
+        interval, (x0, frame0, jnp.asarray(0.0)), None, length=n_transient
+    )
+    start = x
+    (x, _, peak), (log_r, states, cond_r, acc) = jax.lax.scan(
+        interval, (x, frame, _max_abs(x)), None, length=n_qr
+    )
+    return QRResult(
+        log_r,
+        jnp.concatenate([start[None], states]),
+        x,
+        peak,
+        cond_r,
+        acc if step_logdet else None,
+    )
 
 
 def tangent_qr[P](
@@ -152,19 +369,70 @@ def tangent_qr[P](
 ) -> QRResult:
     """Estimate the first ``k`` exponents by the tangent-space method with QR (D-077).
 
-    See ``docs/derivations/lyapunov.md`` and D-077 for the method.
+    Each step advances the state with ``rk4_step`` and every column of the frame with
+    ``jax.jvp`` of ``rk4_step``. Every ``steps_per_qr`` steps the frame is factored as ``QR``;
+    ``ln|R_ii|`` is recorded and the frame becomes ``Q``. The first ``n_transient`` intervals
+    are discarded; the next ``n_qr`` are recorded. The exponents are
+    ``exponents(log_r, tau_Q)`` with ``tau_Q = steps_per_qr * dt``.
+
+    Parameters
+    ----------
+    f : callable
+        Right-hand side ``f(state, params)``. Static: pass a module-level function.
+    state0 : array_like
+        Initial state, shape ``(n,)``.
+    params : pytree
+        Passed through to ``f``.
+    frame0 : array_like
+        ``n x k`` matrix with orthonormal columns.
+    dt : float
+        RK4 step.
+    steps_per_qr, n_qr : int
+        Python ints of at least 1. Static.
+    n_transient : int
+        Python int of at least 0. Static.
+    step_logdet : bool, default False
+        Static. With ``k = n``, also return ``log_det_steps``: per recorded interval, the sum
+        of ``ln|det J_step|`` from ``slogdet(jacfwd(rk4_step))`` along the same trajectory
+        (D-079(a)). The frame is never propagated by that matrix.
+
+    Returns
+    -------
+    QRResult
+        See the class.
+
+    Raises
+    ------
+    TypeError, ValueError
+        If a count is not an ``int`` or is out of range, the frame is not ``n x k`` with
+        ``k <= n``, or ``step_logdet`` is requested with ``k < n``.
     """
-    raise NotImplementedError
+    _require_count(steps_per_qr, "steps_per_qr")
+    _require_count(n_qr, "n_qr")
+    _require_transient(n_transient)
+    x0 = jnp.asarray(state0, dtype=jnp.float64)
+    frame = jnp.asarray(frame0, dtype=jnp.float64)
+    n = x0.shape[0]
+    if frame.ndim != 2 or frame.shape[0] != n or not 1 <= frame.shape[1] <= n:
+        raise ValueError(f"frame0 must be n x k with 1 <= k <= n = {n}, got {frame.shape}")
+    if step_logdet and frame.shape[1] != n:
+        raise ValueError("step_logdet=True needs the full frame, k = n")
+    return _tangent_qr_core(
+        _rk4_step_of(f), _rk4_tangent_of(f), _householder, x0, params, frame, dt,
+        steps_per_qr, n_transient, n_qr, bool(step_logdet),
+    )  # fmt: skip
 
 
 def exponents(log_terms: ArrayLike, interval: ArrayLike) -> Array:
     """Return the mean of ``log_terms`` over the recorded intervals, divided by ``interval``."""
-    raise NotImplementedError
+    return jnp.mean(jnp.asarray(log_terms, dtype=jnp.float64), axis=0) / interval
 
 
 def running_exponents(log_terms: ArrayLike, interval: ArrayLike) -> Array:
     """Return the cumulative estimate after each recorded interval, shaped like ``log_terms``."""
-    raise NotImplementedError
+    terms = jnp.asarray(log_terms, dtype=jnp.float64)
+    counts = jnp.arange(1, terms.shape[0] + 1, dtype=jnp.float64)
+    return jnp.cumsum(terms, axis=0) / (counts.reshape((-1,) + (1,) * (terms.ndim - 1)) * interval)
 
 
 __all__ = [
@@ -177,5 +445,3 @@ __all__ = [
     "tangent_qr",
     "wrap",
 ]
-
-_ = (partial, jax, jnp, _require_count, rk4_step)

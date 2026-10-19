@@ -190,7 +190,7 @@ def test_tangent_qr_states_follow_rk4_trajectory_from_the_end_of_the_transient()
     rows = integrators.rk4_trajectory(lc.linear, jnp.ones(3), DIAG, 0.01, 7, 10)
     _identity(result.states, rows[2:], scale=1.0, what="QR states")
     _identity(result.final_state, rows[-1], scale=1.0, what="QR final state")
-    fine = integrators.rk4_trajectory(lc.linear, jnp.ones(3), DIAG, 0.01, 50, 1)[20:]
+    fine = integrators.rk4_trajectory(lc.linear, jnp.ones(3), DIAG, 0.01, 70, 1)[20:]
     _identity(result.max_abs_state, jnp.max(jnp.abs(fine)), scale=1.0, what="max_abs_state")
 
 

@@ -206,6 +206,16 @@ def vector_field(state: Array, params: Params) -> Array:
 # these coordinates preserves phase-space volume, so its exponents sum to exactly 0 (D-008).
 
 
+def _solve_mass(theta: Array, rhs: Array, params: Params) -> Array:
+    """Solve ``M(theta) x = rhs`` by the closed-form 2 x 2 solve of ``acceleration``."""
+    m1, m2, L1, L2, _ = params
+    M = mass_matrix(theta, params)
+    det = m2 * L1**2 * L2**2 * (m1 + m2 * jnp.sin(theta[0] - theta[1]) ** 2)
+    return jnp.stack(
+        [(M[1, 1] * rhs[0] - M[0, 1] * rhs[1]) / det, (M[0, 0] * rhs[1] - M[0, 1] * rhs[0]) / det]
+    )
+
+
 def to_canonical(state: Array, params: Params) -> Array:
     """Return ``(q, p) = (theta, M(theta) omega)``, shape ``(4,)`` (D-078).
 
@@ -221,7 +231,8 @@ def to_canonical(state: Array, params: Params) -> Array:
     jax.Array
         ``(q1, q2, p1, p2)``, shape ``(4,)``.
     """
-    raise NotImplementedError
+    theta, omega = state[:2], state[2:]
+    return jnp.concatenate([theta, mass_matrix(theta, params) @ omega])
 
 
 def from_canonical(z: Array, params: Params) -> Array:
@@ -239,7 +250,7 @@ def from_canonical(z: Array, params: Params) -> Array:
     jax.Array
         ``(theta1, theta2, omega1, omega2)``, shape ``(4,)``.
     """
-    raise NotImplementedError
+    return jnp.concatenate([z[:2], _solve_mass(z[:2], z[2:], params)])
 
 
 def hamiltonian(z: Array, params: Params) -> Array:
@@ -257,7 +268,9 @@ def hamiltonian(z: Array, params: Params) -> Array:
     jax.Array
         Scalar (shape ``()``), equal to ``energy(from_canonical(z))``.
     """
-    raise NotImplementedError
+    q, p = z[:2], z[2:]
+    omega = _solve_mass(q, p, params)
+    return 0.5 * (p @ omega) + potential_energy(jnp.concatenate([q, omega]), params)
 
 
 def canonical_vector_field(z: Array, params: Params) -> Array:
@@ -279,4 +292,11 @@ def canonical_vector_field(z: Array, params: Params) -> Array:
     jax.Array
         ``dz/dt``, shape ``(4,)``.
     """
-    raise NotImplementedError
+    m1, m2, L1, L2, _ = params
+    q, p = z[:2], z[2:]
+    omega = _solve_mass(q, p, params)
+    alpha = acceleration(jnp.concatenate([q, omega]), params)
+    # Only M12 = M21 = m2 L1 L2 cos(q1 - q2) depends on q, so M' has that entry's derivative.
+    coupling_rate = -m2 * L1 * L2 * jnp.sin(q[0] - q[1]) * (omega[0] - omega[1])
+    m_dot_omega = coupling_rate * jnp.stack([omega[1], omega[0]])
+    return jnp.concatenate([omega, m_dot_omega + mass_matrix(q, params) @ alpha])
