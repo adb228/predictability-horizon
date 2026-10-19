@@ -2018,3 +2018,38 @@ Milestone 5, the Lyapunov estimators: the gates of D-079 to D-082 (D-085, D-086)
 All checks are within the declared thresholds, and every control fails as required.
 ```
 - **Next free number:** D-095.
+
+### D-095 Corrections to D-094 after the diff review of PR #8 (agent, 2026-10-19)
+A fresh `reviewer` ran the diff review of head `b536c3d`, with CI green (run 39341810982, full tier, 734 passed in 266.61 s on 4 workers). Its verdict was **CHANGES REQUESTED**, with one blocking item, B1, a false claim in D-094. It found that the code and tests match the frozen design. D-094 is pushed and is not edited; this entry corrects it. No value, test, gate or script changed, and nothing was re-run.
+- **B1 (blocking): the pairing sentence of D-094 is wrong.** D-094 says that `λ̂₁ + λ̂₄ = −(λ̂₂ + λ̂₃)` "holds to the printed digits on every state". The printout contradicts it on 7 of the 8 states. On state 0, for example, `λ̂₁ + λ̂₄ = −2.218e-8` and `−(λ̂₂ + λ̂₃) = +1.318e-8`.
+  - **The correct statement** follows D-082's "up to `Σ r`": `(λ̂₁ + λ̂₄) + (λ̂₂ + λ̂₃) = Σ r / T` to the printed digits on every state. On state 0, `−3.536e-8` against `Σ r / T = −3.536e-5 / 1000`; on state 1, `−1.079e-8` against `−1.079e-8`. On state 3 the two pairing sums are equal and opposite (`±3.347e-5`) because there `Σ r / T` (`−2.6e-10`) is far below them.
+  - The ratio of state 3's pairing sums to those of the chaotic states is about 300 to 8000, not "about a thousand times" (nit N2).
+- **R1: the margins of D-094 are corrected.**
+  - "The Lorenz floor margin of D-079(b) is 11.7 times, the smallest margin of a validity rule" is false.
+    - The Lorenz `κ` cap margins (`KAPPA_CAP / max κ_j`) are 11.35, 11.37, 11.86 and 11.52.
+    - **The smallest validity margin is the Lorenz `X` cap**, `X_cap / X` of about 1.64 to 1.65 (`X_cap = 78.02`). The smallest pendulum `X` margin is about 26.
+  - The list of tightest gate ratios left out the slope gates. In `check_at_least`'s convention (floor over value), they are:
+    - Lorenz: `4 / 5.0143 = 0.798`
+    - `(θ, ω)`: `0.763`
+    - `(q, p)`: `0.704`
+
+    The full order is HO `S_1` and HO Benettin at 0.933, the Lorenz slope at 0.798, Lorenz initial condition 3 at 0.795, the `(θ, ω)` slope at 0.763, the `(q, p)` slope at 0.704, then L4 `S_1` and L4 Benettin at 0.647.
+- **R5: D-094's item 1 understated the duplication.** The script also repeats, from `tests/test_lyapunov_gates.py`:
+  - the Euler-control setup;
+  - the L4 shifted-eigenvalue and no-QR runs;
+  - the Lorenz no-renormalization and no-QR runs;
+  - the coordinate-mismatch loop;
+  - the four step-control measurements.
+
+  The reviewer compared each against the tests and found them identical today. They are still a second implementation of each control, which D-076 tries to avoid. Moving them into `tests/lyapunov_checks.py` is a protected-file edit and is left to the owner (below).
+- **N3: the checkpoint times of section 6 count from the start of the recorded window,** after the transient, not from `t = 0`. The printout's `t = 100` means 100 time units after the transient. N4: `_checkpoints` uses a display tolerance of `1e-9`, which judges nothing (like F5 of D-089).
+- **R6:** the slowest-15 output of run 39333422868, from which D-094's timeout table comes, goes into the next review input.
+- **R2, docs:**
+  - `PROGRESS.md` no longer gives a next free number of its own (it said D-088); it points to `CLAUDE.md`.
+  - `CLAUDE.md` gives 734 full-tier tests.
+  - The handoff's "State at handoff" lines (613 tests, milestones 1 to 4) describe `65aea26` and are left as they are.
+- **Left to the owner (not done here):**
+  - **R3:** the Permissions line of `CLAUDE.md` still says "while the milestone 5 lab is pending". The rule is true, but its stated reason has ended. The wording, and whether to widen the rule, are the owner's.
+  - **R4:** the printout gives L4 `B₁ = B₃ = 3.914e-3` to four digits, and nothing in the formula forces that. The reviewer is not certain whether it is a coincidence. It found that the `k ≥ 2` branch reads correctly, and that the `S₃` verdict cannot depend on it, since `B₃ ≥ 3 ln 3 / T = 3.30e-3` against an error of `3.6e-4`. It suggests an independent C test of `B₃` by the complementary-minor form. That is an edit to a protected test file.
+  - **N1:** `max(ratios)` in the mismatch control, in the test and in the script, ignores a NaN that is not first. A NaN at one state could then be masked by another state's ratio above 1. It did not happen here, and `np.max` would propagate the NaN. The fix is an edit to a protected gate file.
+- **Next free number:** D-096.
