@@ -1604,3 +1604,27 @@ All are at most 15 s, so under D-084 **no `@pytest.mark.timeout` is declared** a
 
 The lab's scratch folder is deleted once this entry is pushed (D-088).
 - **Next free number:** D-092.
+
+### D-092 The review of D-091: approved with nits, and the corrections (agent, 2026-10-19)
+A fresh `reviewer` reviewed D-091 and the D-089 fixes against D-083, D-084, D-087, D-088, D-090 and the raw lab evidence, at `6b7bb48`. **Verdict: LAB ENTRY APPROVED WITH NITS**, with no blocking finding.
+- **What it found sound:**
+  - It recomputed all four values from the JSON, and each follows from its rule as written.
+  - The tables match the evidence.
+  - `lab.py` implements D-087, D-088 and D-090, and the guard on the gate streams covers every gate helper.
+  - The controls use the gates' own functions and configurations.
+  - The script output nothing beyond D-090's list.
+  - Deviation 1 could not have influenced any value. Its quantity was in fact about `1e-7` to `2e-7`, not "about 1e-7", and it is not a result.
+  - The timings support no timeout declaration.
+  - The D-089 fixes are exactly what D-089 records and change no gate value, reference or tolerance.
+  - The log only adds lines since `5164cf2`.
+- **Corrections to D-091** (pushed, so corrected here):
+  1. **The pendulum Euler-frame control's max `κ₂` is 73.9 to 691.2, not "74 to 739".** The agent mis-copied it from the printout, and 739 is in no evidence file. The Lorenz range, 1.04e3 to 1.30e3, is correct (1035.0 to 1304.5). No value, rule outcome or conclusion changes: every one is still a failure on the bound, below `κ_cap = 10⁴`.
+  2. **The `lorenz_no_renorm` timing (1.13 s) may be an undercount.** The configuration blocks only on the final Benettin result, not on the `run_both` it starts first, and it reads below `lorenz_run` alone (1.17 s) although it does strictly more work. The sum of its parts is about 2.5 s, far below 15 s, so the no-timeout conclusion stands. It is not re-timed.
+  3. **The scratch folder is deleted after the owner has seen this verdict,** not "once this entry is pushed", because the review read it.
+  4. **The timeline.** No lab stage started before `cc5311d` (D-090) was committed at 11:36:04 local time. The first lab file, `out/pend_tauq.log`, was created at 11:43:58, and the Lorenz log at 11:43:59.
+  5. **The Lorenz `τ_Q` margin of 1.08** is against the rule's `10³` on lab ICs. On the gate ICs, a correct run's `κ₂` may exceed `10³` without failing anything: the gate's validity cap is `κ_cap = 10⁴`, ten times higher, and only a value above it makes D-079(a) inconclusive.
+- **Next, in order:**
+  - The four integers go into the register in `src/horizon/tolerances.py` with the Edit tool and the owner's approval: `PENDULUM_STEPS_PER_QR = 80`, `PENDULUM_STEPS_PER_RENORM = 400`, `LORENZ_STEPS_PER_QR = 25`, `LORENZ_TRANSIENT_STEPS = 1600`. They are pinned in K1.
+  - The register tests run.
+  - The gate tests run once, locally, and nothing is adjusted (D-025).
+- **Next free number:** D-093.
