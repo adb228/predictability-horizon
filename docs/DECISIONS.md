@@ -1492,3 +1492,20 @@ The owner's decisions:
 - **No pull request** until the lab entry is logged and reviewed.
 - **Order:** commit the fixes, push the branch, then run the lab under D-087 and D-088. To check the fixes, the register tests (K1 and C, which integrate nothing), the tier guards and the fast tier may be run, with a prompt where the allow rule no longer covers them. No gate test runs. The diff of these fixes goes to the same fresh reviewer as the lab entry, before any gate test runs.
 - **Next free number:** D-090.
+
+### D-090 Two lab rules settled before any lab number exists: QR boundaries for reading (b), and what the lab may output (Owner and agent, 2026-10-19)
+- **Ladder starts that are not on a QR boundary (owner, asked before the Lorenz `τ_Q` was measured).**
+  - Under reading (b) of D-088, each ladder value `t_c` is evaluated at its D-083-rounded start: the ceiling of `128 t_c` steps to a multiple of `lcm(320, τ_Q)`. The `t_c = 1000` reference is rounded the same way. That is exactly the window the gate would use if that value were chosen.
+  - The Lorenz QR and Benettin runs of the rule start at `t = 0` and record every interval, so a window `[t_c, t_c + T]` is a slice of one run. Discarding `n` intervals as a transient is the same computation.
+  - If two ladder values round to the same start, they share one estimate.
+- **The Lorenz `τ_Q` sweep and the rounding.** For a candidate containing `5⁴` (625 or 1250 steps), the rounded 1000-unit transient can exceed 1000 time units. Each Lorenz candidate is therefore run over its own longest rounded transient plus `T`. Its `max κ₂(R_j)` is recorded both over that run and over the literal `[0, 1000 + T]` of D-087. If the two give a different `τ_Q`, that is reported.
+- **What the lab outputs (Q8, agent; mechanical guards).**
+  - The lab script replaces the gate-stream generator of `tests/lyapunov_checks.py` with one that raises, so no gate stream can be read.
+  - It saves and prints only:
+    - `max κ₂(R_j)` per `τ_Q` candidate, state and coordinate system, from runs with `step_logdet=False`; no identity ratio of a correct run is formed;
+    - the pendulum rough `λ̂₁` per state (column 1);
+    - for `t_trans`, only the differences `est(t_c) − est(1000)` per IC and estimator, never the estimates;
+    - the control statistics of D-087. The coordinate-mismatch control runs Benettin alone, so `λ_B − λ_QR,1` is never formed, and it outputs only the ratio and `X / X_cap`;
+    - the runtimes.
+  - The timing runs discard every result and call no `check_*`. Each gate test's configuration is timed cold, as the first test of a fresh process, compile included. L4 is timed on the stream-6 lab frame and HO on the identity frame (timing only).
+- **Next free number:** D-091.
