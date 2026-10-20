@@ -20,6 +20,9 @@ _GATES = "tests/test_integrator_gates.py"
 _ORACLE = "tests/test_oracle_double_pendulum.py"
 _PENDULUM = "tests/test_double_pendulum.py"
 _TIMEOUT = "tests/test_timeout_config.py"
+_LYAP = "tests/test_lyapunov.py"
+_LYAP_REGISTER = "tests/test_lyapunov_register.py"
+_LYAP_GATES = "tests/test_lyapunov_gates.py"
 
 FULL_FUNCTIONS: dict[str, int] = {
     # E1, V1 and F (and their controls) are full in their entirety, because each has a reduced
@@ -40,6 +43,51 @@ FULL_FUNCTIONS: dict[str, int] = {
     # Two tests of 2 s or more that are not reduced (D-067).
     f"{_ORACLE}::test_o3_the_derivation_note_equals_the_oracle_symbolically": 1,
     f"{_TIMEOUT}::test_a_hung_test_fails_at_the_limit_and_the_session_continues": 1,
+    # Milestone 5: every test is full and none has a fast version (D-084): 121 tests.
+    f"{_LYAP}::test_wrap_maps_into_minus_pi_to_pi_and_keeps_small_differences": 1,
+    f"{_LYAP}::test_state_difference_wraps_only_the_masked_components": 1,
+    f"{_LYAP}::test_tangent_qr_returns_the_declared_shapes_and_dtypes": 1,
+    f"{_LYAP}::test_benettin_returns_the_declared_shapes_and_dtypes": 1,
+    f"{_LYAP}::test_tangent_qr_rejects_bad_counts": 5,
+    f"{_LYAP}::test_benettin_rejects_bad_counts_and_masks": 5,
+    f"{_LYAP}::test_tangent_qr_rejects_step_logdet_with_a_partial_frame": 1,
+    f"{_LYAP}::test_tangent_qr_on_a_diagonal_field_gives_the_rk4_map_exactly": 1,
+    f"{_LYAP}::test_tangent_qr_states_follow_rk4_trajectory_from_the_end_of_the_transient": 1,
+    f"{_LYAP}::test_benettin_on_a_diagonal_field_gives_the_rk4_map_exactly": 1,
+    f"{_LYAP}::test_exponents_and_running_exponents_average_over_the_recorded_intervals": 1,
+    f"{_LYAP}::test_the_private_core_accepts_another_tangent_step": 1,
+    f"{_LYAP}::test_canonical_coordinates_satisfy_their_identities": 20,
+    f"{_LYAP}::test_canonical_coordinates_satisfy_their_identities_at_large_unwrapped_angles": 5,
+    f"{_LYAP_REGISTER}::test_register_holds_the_declared_lyapunov_values": 1,
+    f"{_LYAP_REGISTER}::test_register_streams_are_distinct_and_disjoint_from_the_earlier_ones": 1,
+    f"{_LYAP_REGISTER}::test_register_windows_divide_into_whole_intervals": 1,
+    f"{_LYAP_REGISTER}::test_frames_follow_the_recipe_and_are_orthonormal": 1,
+    f"{_LYAP_REGISTER}::test_lorenz_points_follow_the_recipe": 1,
+    f"{_LYAP_REGISTER}::test_pendulum_states_follow_their_recipes": 1,
+    f"{_LYAP_REGISTER}::test_the_derived_formulas_match_the_note": 1,
+    f"{_LYAP_REGISTER}::test_rk4_map_references_are_the_closed_forms": 1,
+    f"{_LYAP_GATES}::test_a_identity_holds_on_every_interval_of_the_lorenz_runs": 4,
+    f"{_LYAP_GATES}::test_a_identity_holds_on_every_interval_of_the_canonical_pendulum_runs": 8,
+    f"{_LYAP_GATES}::test_a_identity_holds_on_every_interval_of_the_theta_omega_pendulum_runs": 8,
+    f"{_LYAP_GATES}::test_a_identity_holds_on_every_interval_of_the_linear_runs": 2,
+    f"{_LYAP_GATES}::test_a_control_an_euler_frame_fails_the_identity_bound": 2,
+    f"{_LYAP_GATES}::test_b_theta_omega_residual_decays_at_order_four_or_more_the_d008_gate": 1,
+    f"{_LYAP_GATES}::test_b_canonical_residual_decays_at_order_four_or_more": 1,
+    f"{_LYAP_GATES}::test_b_lorenz_residual_decays_at_order_four_or_more": 1,
+    f"{_LYAP_GATES}::test_b_control_a_wrong_exact_value_fails_the_aggregate_slope": 4,
+    f"{_LYAP_GATES}::test_l4_partial_sums_lie_within_the_finite_time_bound": 3,
+    f"{_LYAP_GATES}::test_ho_leading_exponent_lies_within_ln_kappa_over_t": 1,
+    f"{_LYAP_GATES}::test_linear_full_sums_match_the_rk4_map_on_every_interval": 2,
+    f"{_LYAP_GATES}::test_linear_benettin_lies_within_the_leading_bound": 2,
+    f"{_LYAP_GATES}::test_l4_control_a_shifted_eigenvalue_fails_the_bound": 1,
+    f"{_LYAP_GATES}::test_l4_control_qr_without_reorthonormalization_fails_s3": 1,
+    f"{_LYAP_GATES}::test_lorenz_leading_exponent_lies_within_the_published_finite_time_bar": 8,
+    f"{_LYAP_GATES}::test_lorenz_second_exponent_is_zero_within_the_declared_tolerance": 4,
+    f"{_LYAP_GATES}::test_lorenz_control_benettin_without_renormalization_falls_below_the_bar": 1,
+    f"{_LYAP_GATES}::test_lorenz_control_qr_without_reorthonormalization_fails_lambda2": 1,
+    f"{_LYAP_GATES}::test_benettin_and_qr_agree_on_the_canonical_pendulum_runs": 8,
+    f"{_LYAP_GATES}::test_benettin_and_qr_agree_on_the_lorenz_runs": 4,
+    f"{_LYAP_GATES}::test_agreement_control_qr_in_theta_omega_exceeds_delta_bq_on_some_state": 1,
 }
 """Node id of a full function -> the number of cases it must have when collected."""
 

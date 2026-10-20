@@ -110,9 +110,12 @@ def test_the_full_functions_pin_the_counts_of_d067() -> None:
         "tests/test_integrator_gates.py": 3,
         ORACLE: 1,
         "tests/test_timeout_config.py": 1,
+        "tests/test_lyapunov.py": 45,
+        "tests/test_lyapunov_register.py": 8,
+        "tests/test_lyapunov_gates.py": 68,
     }
-    assert sum(full.values()) == 33
-    assert len(full) == 14
+    assert sum(full.values()) == 154
+    assert len(full) == 58
     assert full[f"{PHYSICS}::test_e1_dop853_energy_drift_stays_under_the_briefs_ceiling"] == 7
     assert full[f"{PHYSICS}::{F_FFT}"] == 12
 
@@ -127,9 +130,9 @@ def test_the_subset_functions_are_the_sixteen_per_set_tests_and_the_o2_test() ->
     assert not set(functions) & set(tiers.FULL_FUNCTIONS)
 
 
-def test_the_number_of_full_tests_is_the_pinned_339() -> None:
+def test_the_number_of_full_tests_is_the_pinned_460() -> None:
     per_family_full = len(tiers.SET_IDS) - tiers.MODERATE_FAST_SETS
-    assert sum(tiers.FULL_FUNCTIONS.values()) + len(tiers.SUBSET_FUNCTIONS) * per_family_full == 339
+    assert sum(tiers.FULL_FUNCTIONS.values()) + len(tiers.SUBSET_FUNCTIONS) * per_family_full == 460
 
 
 @pytest.mark.parametrize(
@@ -230,7 +233,7 @@ def test_m_fast_and_m_full_select_exactly_the_declared_sets_so_the_hook_runs_bef
     assert not set(collected_fast) & set(collected_full)
     # a hook that ran after -m would have selected nothing (no markers yet) or everything
     assert declared_fast and declared_full
-    assert len(declared_full) == 339
+    assert len(declared_full) == 460
 
 
 # ---- (e) the hook adds the two markers and nothing else ---------------------------------------

@@ -198,3 +198,105 @@ def vector_field(state: Array, params: Params) -> Array:
         ``d(state)/dt``, shape ``(4,)``.
     """
     return jnp.concatenate([state[2:], acceleration(state, params)])
+
+
+# ---- Canonical coordinates (D-078) ---------------------------------------------------------
+#
+# ``(q, p) = (theta, M(theta) omega)``. The angles ``q`` are never wrapped (D-010). The flow in
+# these coordinates preserves phase-space volume, so its exponents sum to exactly 0 (D-008).
+
+
+def _solve_mass(theta: Array, rhs: Array, params: Params) -> Array:
+    """Solve ``M(theta) x = rhs`` by the closed-form 2 x 2 solve of ``acceleration``."""
+    m1, m2, L1, L2, _ = params
+    M = mass_matrix(theta, params)
+    det = m2 * L1**2 * L2**2 * (m1 + m2 * jnp.sin(theta[0] - theta[1]) ** 2)
+    return jnp.stack(
+        [(M[1, 1] * rhs[0] - M[0, 1] * rhs[1]) / det, (M[0, 0] * rhs[1] - M[0, 1] * rhs[0]) / det]
+    )
+
+
+def to_canonical(state: Array, params: Params) -> Array:
+    """Return ``(q, p) = (theta, M(theta) omega)``, shape ``(4,)`` (D-078).
+
+    Parameters
+    ----------
+    state : jax.Array
+        ``(theta1, theta2, omega1, omega2)``, shape ``(4,)``.
+    params : Params
+        Physical parameters ``(m1, m2, L1, L2, g)``.
+
+    Returns
+    -------
+    jax.Array
+        ``(q1, q2, p1, p2)``, shape ``(4,)``.
+    """
+    theta, omega = state[:2], state[2:]
+    return jnp.concatenate([theta, mass_matrix(theta, params) @ omega])
+
+
+def from_canonical(z: Array, params: Params) -> Array:
+    """Return ``(theta, omega)`` with ``omega = M(q)^-1 p``, the inverse of ``to_canonical``.
+
+    Parameters
+    ----------
+    z : jax.Array
+        ``(q1, q2, p1, p2)``, shape ``(4,)``.
+    params : Params
+        Physical parameters ``(m1, m2, L1, L2, g)``.
+
+    Returns
+    -------
+    jax.Array
+        ``(theta1, theta2, omega1, omega2)``, shape ``(4,)``.
+    """
+    return jnp.concatenate([z[:2], _solve_mass(z[:2], z[2:], params)])
+
+
+def hamiltonian(z: Array, params: Params) -> Array:
+    """Return ``H = 1/2 p^T M(q)^-1 p + V(q)``, a scalar (D-078).
+
+    Parameters
+    ----------
+    z : jax.Array
+        ``(q1, q2, p1, p2)``, shape ``(4,)``.
+    params : Params
+        Physical parameters ``(m1, m2, L1, L2, g)``.
+
+    Returns
+    -------
+    jax.Array
+        Scalar (shape ``()``), equal to ``energy(from_canonical(z))``.
+    """
+    q, p = z[:2], z[2:]
+    omega = _solve_mass(q, p, params)
+    return 0.5 * (p @ omega) + potential_energy(jnp.concatenate([q, omega]), params)
+
+
+def canonical_vector_field(z: Array, params: Params) -> Array:
+    """Return ``(q', p')`` with ``q' = M^-1 p`` and ``p' = M' omega + M alpha`` (D-078).
+
+    ``omega = M(q)^-1 p``, ``alpha = acceleration((q, omega))`` and ``M'`` is the time
+    derivative of ``M(q)`` along ``q' = omega``. This reuses the verified mechanics; the note
+    shows that it equals Hamilton's ``-dH/dq``.
+
+    Parameters
+    ----------
+    z : jax.Array
+        ``(q1, q2, p1, p2)``, shape ``(4,)``.
+    params : Params
+        Physical parameters ``(m1, m2, L1, L2, g)``.
+
+    Returns
+    -------
+    jax.Array
+        ``dz/dt``, shape ``(4,)``.
+    """
+    m1, m2, L1, L2, _ = params
+    q, p = z[:2], z[2:]
+    omega = _solve_mass(q, p, params)
+    alpha = acceleration(jnp.concatenate([q, omega]), params)
+    # Only M12 = M21 = m2 L1 L2 cos(q1 - q2) depends on q, so M' has that entry's derivative.
+    coupling_rate = -m2 * L1 * L2 * jnp.sin(q[0] - q[1]) * (omega[0] - omega[1])
+    m_dot_omega = coupling_rate * jnp.stack([omega[1], omega[0]])
+    return jnp.concatenate([omega, m_dot_omega + mass_matrix(q, params) @ alpha])

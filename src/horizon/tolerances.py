@@ -441,6 +441,221 @@ runner that test took 38.2 s of the default 60 s, a margin of 1.6 times; 120 s i
 runner time. It changes no threshold and no gate value."""
 
 
+# --- Milestone 5: Lyapunov estimators (D-076 to D-086) ---------------------------------------
+#
+# Declared in the decision log before any milestone 5 test ran, and frozen with D-086. None of
+# these is a measurement: the references are exact invariants, closed forms or the literature,
+# and the tolerances come from theory (owner's instruction 1 of the milestone 5 design). The
+# calibration lab may set only the pendulum Benettin interval, the QR cadences and the Lorenz
+# transient (D-083); those values are added here by a later entry, before any gate test runs.
+# The constants of the lab's rules are rule constants, not gate values: ``ln 10`` (the Benettin
+# interval), ``10**3`` (the QR cadence), the ladder ``(10, 30, 100, 300, 1000)`` with the
+# half-tolerance criterion (the Lorenz transient), and the first lab stream element ``4545``.
+# The streams are ``np.random.default_rng([CASES_SEED, stream])``, disjoint from the earlier
+# ones. A frame is the ``Q`` of ``np.linalg.qr(rng.standard_normal((n, n)))`` with each column's
+# sign set so that ``diag(R) > 0`` (D-084). A change to any value needs Opus 5.5's approval
+# first (D-025).
+
+L4_FRAME_STREAM: int = 4000
+"""Stream of the L4 frame (D-080, D-084)."""
+
+HO_FRAME_STREAM: int = 4001
+"""Stream of the HO frame (D-080, D-084)."""
+
+LORENZ_IC_STREAM: int = 4002
+"""Stream of the Lorenz initial conditions (D-081): one draw ``rng.uniform(low, high,
+size=(N, 3))`` with ``low = (xy_lo, xy_lo, z_lo)`` and ``high = (xy_hi, xy_hi, z_hi)`` from
+``LORENZ_XY_BOX`` and ``LORENZ_Z_BOX``."""
+
+LORENZ_FRAME_STREAM: int = 4003
+"""Stream of the Lorenz frames, one ``3 x 3`` frame per initial condition, in order (D-081)."""
+
+LYAP_PENDULUM_STREAM: int = 4004
+"""Stream of the pendulum states of the agreement runs, drawn by the recipe of D-046(a): per
+attempt ``rng.uniform(-CHAOTIC_THETA_MAX, CHAOTIC_THETA_MAX, size=2)`` with ``omega = 0``,
+kept only if ``E > 0`` (D-082)."""
+
+LYAP_PENDULUM_FRAME_STREAM: int = 4005
+"""Stream of the pendulum frames, one ``4 x 4`` frame per state, in order (D-082)."""
+
+STEP_PENDULUM_STREAM: int = 4006
+"""Stream of the pendulum states of the per-step residual (D-079(b)): angles uniform in
+``[-CHAOTIC_THETA_MAX, CHAOTIC_THETA_MAX]`` (one draw of shape ``(N_STEP_STATES, 2)``), then
+velocities uniform in ``[-MOVING_OMEGA_MAX, MOVING_OMEGA_MAX]`` (a second draw). The same
+states serve ``(theta, omega)`` and, through ``to_canonical``, ``(q, p)``."""
+
+STEP_LORENZ_STREAM: int = 4007
+"""Stream of the Lorenz points of the per-step residual (D-079(b)), drawn like the initial
+conditions of ``LORENZ_IC_STREAM``."""
+
+N_LORENZ_ICS: int = 4
+"""Number of Lorenz initial conditions, each gated on its own (D-081)."""
+
+N_LYAP_PENDULUM: int = 8
+"""Number of pendulum states in the agreement runs (D-082)."""
+
+N_STEP_STATES: int = 8
+"""Number of states per system in the per-step residual gate (D-079(b), D-086)."""
+
+LYAP_D0: float = 1e-9
+"""Benettin's initial separation ``d0``, the brief's value (D-084)."""
+
+LYAP_T: int = 1000
+"""Averaging time of the pendulum, L4 and HO runs, in the time unit of the field (D-084). Their
+step is ``AGREE_DT``."""
+
+PENDULUM_T_TRANS: int = 100
+"""Transient of the pendulum runs, declared a priori (D-083)."""
+
+# The linear systems of D-080. ``A = V D V^-1`` with these matrices; the test writes the RK4-map
+# references ``ln|R(dt mu)| / dt`` itself (D-080).
+
+L4_D: tuple[tuple[float, ...], ...] = (
+    (0.5, 0.0, 0.0, 0.0),
+    (0.0, -0.2, 1.0, 0.0),
+    (0.0, -1.0, -0.2, 0.0),
+    (0.0, 0.0, 0.0, -1.0),
+)
+"""``D = blockdiag(0.5, [[-0.2, 1.0], [-1.0, -0.2]], -1.0)``, with the exponents
+``(0.5, -0.2, -0.2, -1.0)``."""
+
+L4_V: tuple[tuple[float, ...], ...] = (
+    (1.0, 0.5, 0.0, 0.0),
+    (0.0, 1.0, 0.5, 0.0),
+    (0.0, 0.0, 1.0, 0.5),
+    (0.5, 0.0, 0.0, 1.0),
+)
+"""Circulant ``V``, eigenvalues ``1.5``, ``1 +- 0.5i`` and ``0.5``, so ``kappa_2(V) = 3``."""
+
+L4_CONTROL_EIGENVALUE: float = 0.6
+"""The control of D-080 replaces the real eigenvalue ``0.5`` of ``D`` by this in the field."""
+
+HO_OMEGA: float = 2.0
+"""``Omega`` of the harmonic oscillator ``x' = v``, ``v' = -Omega**2 x`` (D-044, D-080)."""
+
+HO_STATE0: tuple[float, float] = (1.0, 0.5)
+"""Initial state of the HO runs (D-080)."""
+
+L4_STATE0: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+"""Initial state of the L4 runs and their controls (D-080, review R3; in the register by D-089)."""
+
+LINEAR_STEPS_PER_INTERVAL: int = 100
+"""L4 and HO: ``tau_B = tau_Q = 1`` time unit, 100 steps of ``AGREE_DT`` (D-083)."""
+
+# Lorenz (D-081).
+
+LORENZ_SIGMA: float = 10.0
+LORENZ_RHO: float = 28.0
+LORENZ_BETA: float = 8.0 / 3.0
+"""The classical parameters, those of the reference (D-081)."""
+
+LORENZ_XY_BOX: tuple[float, float] = (-15.0, 15.0)
+LORENZ_Z_BOX: tuple[float, float] = (10.0, 40.0)
+"""Sampling box of the Lorenz initial conditions and per-step points (D-079(b), D-081)."""
+
+LORENZ_DT: float = 1.0 / 128.0
+"""Viswanath's step, so his finite-time bars apply to ours (D-081)."""
+
+LORENZ_T: int = 10_000
+"""Averaging time after the transient: the ``T = 10**4`` row of Viswanath's Table 5.2(c)
+(D-081, Q4)."""
+
+LORENZ_STEPS_PER_RENORM: int = 320
+"""Lorenz ``tau_B = 2.5``: the largest divisor of the window ``1 280 000`` steps with
+``lambda_1 tau_B <= ln 10`` at the published ``lambda_1`` (D-083)."""
+
+LORENZ_LAMBDA1_REF: float = 0.90566
+"""Viswanath (1998), PhD thesis, Cornell, Table 5.1: ``gamma_1`` (D-081). Literature, not run."""
+
+LORENZ_LAMBDA1_REF_ERR: float = 0.00007
+"""The reference's own maximum error, Table 5.1 (D-081)."""
+
+LORENZ_LAMBDA1_BAR: float = 0.003
+"""Viswanath's finite-time bar at ``T = 10**4``, Table 5.2(c). The gate is
+``|lambda_1 - LORENZ_LAMBDA1_REF| <= LORENZ_LAMBDA1_BAR + LORENZ_LAMBDA1_REF_ERR`` (D-081)."""
+
+LORENZ_LAMBDA2_TOL: float = 1e-3
+"""``|lambda_2| <= LORENZ_LAMBDA2_TOL``: ten times Viswanath's ``10**-4`` reading at
+``t = 10**4`` (D-081)."""
+
+LORENZ_CONTROL_BETA_FACTOR: float = 1.01
+"""The Lorenz control of D-079 multiplies ``beta`` by this in the field but not in ``ell``."""
+
+# The exact-invariant gates (D-079, D-085, D-086).
+
+KAPPA_CAP: float = 1e4
+"""Validity cap of D-079(a): every recorded ``kappa_2(R_j)`` must be at most this, or the
+identity fails as inconclusive."""
+
+LOGDET_C: float = 100.0
+"""Constant ``c`` of the rounding bound ``c * eps * steps_per_qr * n * kappa_j`` of D-079(a).
+A declared allowance, not a proved constant, resting on the unproved assumption that the
+intermediate frames are no worse conditioned than ``kappa_j`` (D-085, D-086; note section 2)."""
+
+STEP_SLOPE_MIN: float = 4.0
+"""The least-squares slope of ``log R(dt)`` against ``log dt`` must be at least this, where
+``R(dt)`` is the largest ``|r|`` over the ``N_STEP_STATES`` states at each ``dt`` (D-079(b),
+Q6, D-086 option 4). Per-state slopes and signs are reported, not gated."""
+
+STEP_FLOOR_FACTOR: float = 1e3
+"""Validity floor of D-079(b): ``R`` at the smallest ``dt`` must be at least
+``STEP_FLOOR_FACTOR * eps``, about ``2.2e-13``, or the gate fails as inconclusive (D-086)."""
+
+STEP_DT_GRID_THETA: tuple[float, float, float, float] = (0.08, 0.04, 0.02, 0.01)
+"""Grid of the per-step residual for the pendulum in ``(theta, omega)`` (D-079(b))."""
+
+STEP_DT_GRID_QP: tuple[float, float, float, float] = (0.16, 0.08, 0.04, 0.02)
+"""Grid of the per-step residual for the pendulum in ``(q, p)``, declared a priori (D-085)."""
+
+STEP_DT_GRID_LORENZ: tuple[float, float, float, float] = (0.005, 0.0025, 0.00125, 0.000625)
+"""Grid of the per-step residual for Lorenz (D-079(b))."""
+
+QP_CONTROL_DAMPING: float = 0.01
+"""``gamma`` of the ``(q, p)`` control, ``p' <- p' - gamma p``, against the exact ``ell = 0``
+(D-086)."""
+
+# The agreement of Benettin and QR (D-082, D-085).
+
+DELTA_BQ_S: float = 5.0
+"""``s`` of the worst-case gate ``delta_BQ = s * eps * X / (d0 * dt)`` (D-085, Q7; note
+section 5). It rests on two unproved assumptions, stated in the note."""
+
+DELTA_BQ_Z: float = 5.0
+"""Report only: ``z`` of the probabilistic form ``z * delta_BQ / sqrt(N_total)`` (D-085)."""
+
+LOW_POWER_FRACTION: float = 0.1
+"""Report only: a state is marked "low power" where ``delta_BQ > LOW_POWER_FRACTION *
+|lambda_QR_1|`` (D-085)."""
+
+X_CAP_ENERGY_ALLOWANCE: float = 0.01
+"""Pendulum ``X`` cap: ``K_max = E(0) + E_s + X_CAP_ENERGY_ALLOWANCE * E_s``, a declared
+allowance for RK4's energy drift (D-085; note section 6)."""
+
+X_CAP_FACTOR: float = 1.01
+"""Lorenz ``X`` cap: ``X_CAP_FACTOR * (sigma + rho + R)`` with the trapping-ball radius
+``R = beta (sigma + rho) / (2 sqrt(beta - 1))``, a declared allowance for RK4 (D-085; note
+section 6). Above a cap the agreement gate fails as inconclusive."""
+
+# The calibration lab's values (D-083; set by the uncommitted lab of D-091, reviewed in D-092,
+# before any gate test ran). Each is a step count set by its rule on lab streams only.
+
+PENDULUM_STEPS_PER_QR: int = 80
+"""Pendulum ``tau_Q = 0.8``: the largest divisor of ``10 000`` steps with every
+``kappa_2(R_j) <= 10**3`` on the lab states, ``(q, p)`` and ``(theta, omega)`` (D-091)."""
+
+PENDULUM_STEPS_PER_RENORM: int = 400
+"""Pendulum ``tau_B = 4``: the largest divisor of ``10 000`` steps with
+``lambda_1 tau_B <= ln 10`` at the largest rough ``lambda_1`` of the lab states (D-091)."""
+
+LORENZ_STEPS_PER_QR: int = 25
+"""Lorenz ``tau_Q = 25 / 128``: the largest divisor of the window up to ``1280`` steps with
+every ``kappa_2(R_j) <= 10**3`` on the lab initial conditions (D-091)."""
+
+LORENZ_TRANSIENT_STEPS: int = 1600
+"""Lorenz transient, 12.5 time units: ``t_trans = 10`` by reading (b) of D-088, rounded up to
+a multiple of ``lcm(320, 25)`` (D-090, D-091)."""
+
+
 # --- The comparison rule --------------------------------------------------------------------
 
 
