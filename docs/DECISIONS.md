@@ -2053,3 +2053,32 @@ A fresh `reviewer` ran the diff review of head `b536c3d`, with CI green (run 393
   - **R4:** the printout gives L4 `B₁ = B₃ = 3.914e-3` to four digits, and nothing in the formula forces that. The reviewer is not certain whether it is a coincidence. It found that the `k ≥ 2` branch reads correctly, and that the `S₃` verdict cannot depend on it, since `B₃ ≥ 3 ln 3 / T = 3.30e-3` against an error of `3.6e-4`. It suggests an independent C test of `B₃` by the complementary-minor form. That is an edit to a protected test file.
   - **N1:** `max(ratios)` in the mismatch control, in the test and in the script, ignores a NaN that is not first. A NaN at one state could then be masked by another state's ratio above 1. It did not happen here, and `np.max` would propagate the NaN. The fix is an edit to a protected gate file.
 - **Next free number:** D-096.
+
+### D-096 Corrections to D-094 and D-095 after the second diff review of PR #8 (agent, 2026-10-19)
+A fresh `reviewer` reviewed head `0936161`, with CI green: run 39343405426, full tier, 734 passed in 487.03 s on 4 workers. Its verdict was **CHANGES REQUESTED**, with one blocking item, B1. It also found that the implementation, the tests, the register, the tiers and the script match the frozen design, and that D-095's other corrections are accurate. D-094 and D-095 are pushed and are not edited; this entry corrects them. No value, test, gate or script changed, and nothing was re-run.
+- **B1 (blocking): D-094's timeout table was incomplete, and its closing sentence was false.** D-094 says "Every other test took at most 11.39 s, the fifteenth slowest". In fact the slowest-15 list of run 39333422868 has seven more tests above 11.39 s that the table left out:
+  - six E1 cases under the 300 s timeout `E_TIMEOUT_S`, from 15.89 s to 24.35 s, about 5 to 8 %;
+  - **V1 chaotic-ish, at 16.38 s of the default 60 s, or 27 %.** It has no timeout mark, and its fraction is above the G4 and O3 rows that the table does list.
+
+  The corrected sentence is: every test outside the slowest 15 took at most 11.39 s, which is 19 % of 60 s. The headline stands: the worst fraction in that run is the milestone 5 mismatch control, at 48 %.
+- **The fractions on run 39343405426** (head `0936161`), a slow run overall: 487 s, against 260 to 267 s on the two runs before it.
+
+  | Test | CI time | Timeout | Fraction |
+  |---|---|---|---|
+  | milestone 4: V1 chaotic-ish | 28.15 s | 60 s (default) | 47 % |
+  | milestone 4: V1 regular | 53.79 s | 120 s | 45 % |
+  | milestone 3: G4 regular | 25.88 s | 60 s | 43 % |
+  | milestone 4: F2 mode 2, DOP853 | 17.75 s | 60 s | 30 % |
+  | milestone 4: E1 chaotic-0 | 45.24 s | 300 s | 15 % |
+
+  The other ten tests in the slowest 15 are E1 cases and controls under the 300 s timeout, at 24.03 s to 43.94 s, which is at most 15 %. Every test outside the slowest 15 took at most 17.75 s, or 30 % of 60 s. No milestone 5 test is in the slowest 15. Nothing is near the 75 % mark of D-071.
+- **R1: the wording of D-095's pairing correction.** The relation `(λ̂₁ + λ̂₄) + (λ̂₂ + λ̂₃) = Σ r / T` holds on all 8 states, **within the rounding of the printed values**, not "to the printed digits". On state 6, for example, the sum is `−1.569e-8` and `Σ r / T` is `−1.573e-8`; the printed `−1.072e-7` term carries a rounding of up to `5e-11`.
+- **R3: the duplication list of D-095 is extended.** The script also does two more things the test module does:
+  - it re-assembles the three gate step measurements (field, grid, `ell`) of `_theta_step`, `_canonical_step` and `_lorenz_step`;
+  - it re-assembles the call sites of the agreement and Lorenz gates (`X` from `benettin.max_abs_state`, the cap, the bar).
+
+  The reviewer found each identical to the tests. Moving them into `tests/lyapunov_checks.py` stays with the owner (D-095).
+- **R2: the append-only check, per pushed head.** `git diff A B -- docs/DECISIONS.md` removes 0 lines for every consecutive pair of the branch's pushed heads: `5164cf2`, `7fdfd11`, `cc5311d`, `6b7bb48`, `9b9c446`, `84057de`, `b536c3d` and `0936161`. It also removes 0 lines from `main` to `5164cf2`.
+- **N3 of the review, on R4 of D-095, reported as given.** The reviewer's own derivation, which it did not check numerically and is not certain of: by Jacobi's complementary-minor identity, `ln(vol₃(C)/|det C_K|) = ln(‖f₄ᵀV‖/|f₄ᵀv₄|)`. That depends on frame column 4, while `B₁` depends on column 1, so `B₁ = B₃` to four digits looks like a coincidence. The `S₃` verdict cannot depend on it. The independent C test stays the owner's decision.
+- **Docs:** `PROGRESS.md` and `CLAUDE.md` now cite D-076 to D-096, and the PR body is brought up to date.
+- **Next free number:** D-097.
