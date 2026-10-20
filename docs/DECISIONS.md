@@ -2082,3 +2082,24 @@ A fresh `reviewer` reviewed head `0936161`, with CI green: run 39343405426, full
 - **N3 of the review, on R4 of D-095, reported as given.** The reviewer's own derivation, which it did not check numerically and is not certain of: by Jacobi's complementary-minor identity, `ln(vol₃(C)/|det C_K|) = ln(‖f₄ᵀV‖/|f₄ᵀv₄|)`. That depends on frame column 4, while `B₁` depends on column 1, so `B₁ = B₃` to four digits looks like a coincidence. The `S₃` verdict cannot depend on it. The independent C test stays the owner's decision.
 - **Docs:** `PROGRESS.md` and `CLAUDE.md` now cite D-076 to D-096, and the PR body is brought up to date.
 - **Next free number:** D-097.
+
+### D-097 Milestone 5 closed: the third and fourth diff reviews and the merge of PR #8 (agent, 2026-10-20)
+- **The third diff review** (head `f8a137b`, CI green on run 39346996978, 734 passed) returned CHANGES REQUESTED. Its one blocking item was a count in `PROGRESS.md` with no source: "found four deviations, which were fixed". D-089 lists eight findings, of which six were fixed (F1 to F4, F6, F7) and two logged as known items (F5, F8). It was corrected in place in `7d8e2e8`, since `PROGRESS.md` is not append-only.
+- **The fourth diff review**, by a fresh reviewer of the whole branch, approved head `7d8e2e8` with **`APPROVED FOR MERGE`** and no blocking item. CI was green on both of its runs:
+  - run 39348331754 (pull_request): full tier, 734 passed in 252.66 s on 4 workers, lint passed;
+  - run 39348328255 (push): fast tier, 274 passed in 53.24 s.
+- **Its non-blocking items:**
+  - R1: `PROGRESS.md` said the 68 gate tests "ran once"; they ran once locally, as D-093 says, and on every PR head since on CI. Fixed in this commit.
+  - R2: this entry.
+  - R3: the interview questions are not carried forward in the handoff. They were given to the owner at the end of the milestone, without answers (D-084).
+  - R4: some report-only items are printed only in part: running estimates of `λ̂₁` only; the pairing sums at `T` only, not as a convergence; the per-state slopes as a minimum and maximum. None of these is a gate statistic.
+  - R5: the script's docstring names only two of its repeated set-ups.
+
+  R4 and R5 are left to the owner, together with the items of D-095 and D-096.
+- **The merge (D-064).** It was made locally as `18cb285`, `Merge pull request #8 from adb228/milestone-5-lyapunov`. Before `git push origin main`, the following were checked:
+  - the author and committer are the noreply address;
+  - the two parents are `54f0f2a` and `7d8e2e8`;
+  - the tree equals the branch head.
+
+  GitHub shows PR #8 as merged. The branch was deleted on the remote and locally.
+- **Next free number:** D-098.
